@@ -1,0 +1,17 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pibox"
+version = "0.1.0"
+description = "pi-coding-agent adapter for aicodebox"
+license = { text = "WTFPL" }
+requires-python = ">=3.12"
+authors = [{ name = "psyb0t" }]
+dependencies = [
+    "aicodebox>=0.1.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["pibox"]

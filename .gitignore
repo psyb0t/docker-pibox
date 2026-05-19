@@ -1,0 +1,27 @@
+# Secrets — never commit
+.env
+.env.*
+*.env
+!.env.example
+!.env.test.example
+
+# Local research / scratch
+.research_files/
+
+# Local tooling / scratch — never commit
+CLAUDE.md
+ANUSTIMES.md
+PLAN.md
+implplan.md
+git-update.sh
+pyrightconfig.json
+.mypy_cache/
+.pytest_cache/
+__pycache__/
+*.pyc
+*.egg-info/
+
+# Test artifacts
+tests/logs/
+tests/.logs/
+tests/.fixtures/
