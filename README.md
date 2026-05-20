@@ -44,7 +44,7 @@ docker run -d --network host \
 
 ## Modes
 
-Set any combination of `AICODEBOX_MODE_*=1`. Multiple modes start in the same container — telegram + cron is the common pattern.
+One mode per container, with one exception: `AICODEBOX_MODE_TELEGRAM=1` and `AICODEBOX_MODE_CRON=1` can run together — cron runs in-thread inside the telegram process. API mode always takes priority if set alongside anything else.
 
 ### API mode
 
