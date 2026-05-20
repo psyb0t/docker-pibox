@@ -7,7 +7,7 @@ ARG BASE_IMAGE=psyb0t/aicodebox:latest
 FROM ${BASE_IMAGE}
 
 # pi-coding-agent — pinned npm install.
-ARG PI_VERSION=0.74.0
+ARG PI_VERSION=0.75.3
 RUN npm install -g @earendil-works/pi-coding-agent@${PI_VERSION}
 
 # pibox python package (the PiAdapter). aicodebox is already in the base image
