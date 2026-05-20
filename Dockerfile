@@ -13,7 +13,7 @@ RUN npm install -g @earendil-works/pi-coding-agent@${PI_VERSION}
 # pibox python package (the PiAdapter). aicodebox is already in the base image
 # so we install with --no-deps to avoid redundant resolution.
 COPY pibox /opt/pibox
-RUN uv pip install --system --no-deps /opt/pibox
+RUN uv pip install --system --break-system-packages --no-deps /opt/pibox
 
 # Pre-install the mcp-bridge extension's npm deps once at build time.
 # The extension is later copied into the workspace on first run via init.d.
