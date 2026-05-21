@@ -26,3 +26,8 @@ RUN chmod +x /aicodebox-init.d/*.sh
 # Adapter selection — the modes resolve this at runtime.
 ENV AICODEBOX_ADAPTER=pibox.adapter:PiAdapter \
     AICODEBOX_AGENT_BINARY=pi
+
+# pibox-branded entrypoint: aliases PIBOX_* → AICODEBOX_*, then exec the base.
+COPY pibox-entrypoint.sh /usr/local/bin/pibox-entrypoint
+RUN chmod +x /usr/local/bin/pibox-entrypoint
+ENTRYPOINT ["/usr/local/bin/pibox-entrypoint"]
