@@ -244,6 +244,96 @@ test_api_files() {
     assert_eq "$code" "400" "DELETE /files/subdir (dir) → 400"
 }
 
+test_api_files_binary() {
+    _api_start "" || return 1
+    # Tiny but non-trivial binary blob — random 1 KiB. urandom is in every
+    # Linux container; no fixture file needed. We PUT it, GET it back, and
+    # require the bytes to match exactly (no text-mode mangling of nulls /
+    # high-bit characters by curl or FastAPI).
+    local src dst
+    src=$(mktemp)
+    dst=$(mktemp)
+    head -c 1024 /dev/urandom > "$src"
+    local code
+    code=$(_curl_auth -m 5 -o /dev/null -w "%{http_code}" -X PUT \
+        -H "Content-Type: application/octet-stream" \
+        --data-binary "@$src" \
+        "$API_URL/files/blobs/random.bin")
+    assert_eq "$code" "200" "PUT binary /files/blobs/random.bin → 200" || \
+        { rm -f "$src" "$dst"; return 1; }
+    _curl_auth -m 5 -o "$dst" "$API_URL/files/blobs/random.bin"
+    if cmp -s "$src" "$dst"; then
+        log "  OK: binary round-trip byte-for-byte identical"
+    else
+        log "  FAIL: binary round-trip differs ($(stat -c%s "$src") vs $(stat -c%s "$dst") bytes)"
+        rm -f "$src" "$dst"
+        return 1
+    fi
+    rm -f "$src" "$dst"
+}
+
+test_api_files_auto_mkdir() {
+    _api_start "" || return 1
+    # PUT into a path whose parents don't exist yet — the server must
+    # create the intermediate directories rather than 404 / 500.
+    local code body
+    code=$(_curl_auth -m 5 -o /dev/null -w "%{http_code}" -X PUT \
+        -H "Content-Type: text/plain" --data-binary "deep-write" \
+        "$API_URL/files/deep/nested/path/file.txt")
+    assert_eq "$code" "200" "PUT into non-existent parent dirs → 200" || return 1
+    body=$(_curl_auth -m 5 "$API_URL/files/deep/nested/path/file.txt")
+    assert_eq "$body" "deep-write" "auto-created path round-trips" || return 1
+    body=$(_curl_auth -m 5 "$API_URL/files/deep")
+    assert_contains "$body" "\"nested\"" "intermediate dirs listable"
+}
+
+test_api_files_overwrite() {
+    _api_start "" || return 1
+    # PUT twice to the same path — second must replace, not append/error.
+    local code body
+    code=$(_curl_auth -m 5 -o /dev/null -w "%{http_code}" -X PUT \
+        -H "Content-Type: text/plain" --data-binary "first-version" \
+        "$API_URL/files/overwrite.txt")
+    assert_eq "$code" "200" "first PUT → 200" || return 1
+    code=$(_curl_auth -m 5 -o /dev/null -w "%{http_code}" -X PUT \
+        -H "Content-Type: text/plain" --data-binary "second-version" \
+        "$API_URL/files/overwrite.txt")
+    assert_eq "$code" "200" "overwrite PUT → 200" || return 1
+    body=$(_curl_auth -m 5 "$API_URL/files/overwrite.txt")
+    assert_eq "$body" "second-version" "GET returns overwritten content (not concatenated)"
+}
+
+test_api_files_delete_nonexistent() {
+    _api_start "" || return 1
+    local code
+    code=$(_curl_auth -m 5 -o /dev/null -w "%{http_code}" -X DELETE \
+        "$API_URL/files/this-path-does-not-exist.txt")
+    assert_eq "$code" "404" "DELETE nonexistent → 404"
+}
+
+test_api_files_auth() {
+    # Bearer enforcement on /files/* specifically (test_api_auth only covers
+    # /run/result; need to confirm files routes are also gated).
+    local token="files-auth-$$"
+    _api_start "$token" || return 1
+    local code
+    code=$(curl -sS -o /dev/null -w "%{http_code}" -m 5 "$API_URL/files")
+    assert_eq "$code" "401" "GET /files without token → 401" || return 1
+    code=$(curl -sS -o /dev/null -w "%{http_code}" -m 5 -X PUT \
+        -H "Content-Type: text/plain" --data-binary "x" \
+        "$API_URL/files/nope.txt")
+    assert_eq "$code" "401" "PUT /files/* without token → 401" || return 1
+    code=$(curl -sS -o /dev/null -w "%{http_code}" -m 5 -X DELETE \
+        "$API_URL/files/nope.txt")
+    assert_eq "$code" "401" "DELETE /files/* without token → 401" || return 1
+    code=$(curl -sS -o /dev/null -w "%{http_code}" -m 5 \
+        -H "Authorization: Bearer wrong" "$API_URL/files")
+    assert_eq "$code" "401" "GET /files with wrong token → 401" || return 1
+    code=$(curl -sS -o /dev/null -w "%{http_code}" -m 5 \
+        -H "Authorization: Bearer $token" "$API_URL/files")
+    assert_eq "$code" "200" "GET /files with right token → 200"
+}
+
 test_api_oai_models() {
     _api_start "" || return 1
     local body
@@ -408,6 +498,11 @@ ALL_TESTS+=(
     test_api_cancel
     test_api_fire_and_forget
     test_api_files
+    test_api_files_binary
+    test_api_files_auto_mkdir
+    test_api_files_overwrite
+    test_api_files_delete_nonexistent
+    test_api_files_auth
     test_api_oai_models
     test_api_oai_chat
     test_api_oai_reject_tools

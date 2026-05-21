@@ -58,9 +58,35 @@ One mode per container, with one exception: `AICODEBOX_MODE_TELEGRAM=1` and `AIC
 | `POST` | `/run/async` | fire and get a job id back |
 | `GET` | `/run/{id}` | poll async job |
 | `POST` | `/run/{id}/cancel` | kill in-flight run |
+| `GET` | `/files` | list the workspace root (`{entries: [{name, type, size?}, ...]}`) |
+| `GET` | `/files/{path}` | list a sub-directory, or stream a file's bytes |
+| `PUT` | `/files/{path}` | upload — raw request body becomes the file contents; parent dirs auto-created |
+| `DELETE` | `/files/{path}` | delete a file (refuses directories — 400) |
 | `POST` | `/v1/chat/completions` | OpenAI-compatible (streaming + non-streaming) |
 | `GET` | `/v1/models` | model list |
 | `POST` | `/mcp` | MCP server (streamable HTTP) |
+
+All `/files/*` paths are resolved against the workspace root with traversal checking — `..` segments that escape the root return 400. Same `Authorization: Bearer ...` token gates them as the rest of the API.
+
+```bash
+# upload a file
+curl -sS -X PUT \
+  -H "Authorization: Bearer your-secret" \
+  --data-binary @local.txt \
+  http://localhost:8080/files/notes/hello.txt
+
+# download it back
+curl -sS -H "Authorization: Bearer your-secret" \
+  http://localhost:8080/files/notes/hello.txt
+
+# list the dir
+curl -sS -H "Authorization: Bearer your-secret" \
+  http://localhost:8080/files/notes | jq
+
+# delete it
+curl -sS -X DELETE -H "Authorization: Bearer your-secret" \
+  http://localhost:8080/files/notes/hello.txt
+```
 
 **`POST /run`** body: `prompt` (required), `workspace`, `model`, `systemPrompt`, `appendSystemPrompt`, `jsonSchema`, `outputFormat`, `noContinue`, `resume`, `timeoutSeconds`, `thinking`, `noTools`, `toolsAllowlist`.
 
