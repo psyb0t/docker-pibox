@@ -33,14 +33,17 @@ _api_start() {
 
     local extra=()
     if [ -n "$token" ]; then
-        extra+=(-e "AICODEBOX_MODE_API_TOKEN=$token")
+        extra+=(-e "AICODEBOX_API_MODE_TOKEN=$token")
+        # Share the same bearer with MCP for these tests — keeps curl one-token.
+        extra+=(-e "AICODEBOX_MCP_MODE_TOKEN=$token")
     fi
 
     docker rm -f "$cname" >/dev/null 2>&1 || true
     docker run -d --name "$cname" \
         --network host \
-        -e "AICODEBOX_MODE_API=1" \
-        -e "AICODEBOX_MODE_API_PORT=$port" \
+        -e "AICODEBOX_API_MODE=1" \
+        -e "AICODEBOX_API_MODE_PORT=$port" \
+        -e "AICODEBOX_MCP_MODE=1" \
         -e "ANTHROPIC_AUTH_TOKEN=$ANTHROPIC_AUTH_TOKEN" \
         -e "ANTHROPIC_API_KEY=$ANTHROPIC_AUTH_TOKEN" \
         -e "ANTHROPIC_BASE_URL=$ANTHROPIC_BASE_URL" \

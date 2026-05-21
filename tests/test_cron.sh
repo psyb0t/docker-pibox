@@ -24,8 +24,8 @@ _cron_start() {
     docker run -d --name "$cname" \
         --network host \
         -v "$hostdir:/workspace" \
-        -e "AICODEBOX_MODE_CRON=1" \
-        -e "AICODEBOX_MODE_CRON_FILE=/workspace/cron.yaml" \
+        -e "AICODEBOX_CRON_MODE=1" \
+        -e "AICODEBOX_CRON_MODE_FILE=/workspace/cron.yaml" \
         -e "AICODEBOX_WORKSPACE=/workspace" \
         -e "ANTHROPIC_AUTH_TOKEN=$ANTHROPIC_AUTH_TOKEN" \
         -e "ANTHROPIC_API_KEY=$ANTHROPIC_AUTH_TOKEN" \
@@ -53,8 +53,8 @@ test_cron_yaml_parse() {
     local rc
     rc=$(docker run --rm \
         -v "$hostdir:/workspace" \
-        -e "AICODEBOX_MODE_CRON=1" \
-        -e "AICODEBOX_MODE_CRON_FILE=/workspace/cron.yaml" \
+        -e "AICODEBOX_CRON_MODE=1" \
+        -e "AICODEBOX_CRON_MODE_FILE=/workspace/cron.yaml" \
         -e "AICODEBOX_WORKSPACE=/workspace" \
         "$IMAGE" >/dev/null 2>&1; echo $?)
     if [ "$rc" = "0" ]; then

@@ -6,7 +6,7 @@ TELETHON_IMAGE="psyb0t/telethon-plus"
 
 _tg_check_env() {
     local missing=()
-    for v in AICODEBOX_TELEGRAM_BOT_TOKEN TELEGRAM_CHAT_ID \
+    for v in AICODEBOX_TELEGRAM_MODE_TOKEN TELEGRAM_CHAT_ID \
              TELETHON_API_ID TELETHON_API_HASH TELETHON_SESSION TELETHON_AUTH_KEY; do
         if [ -z "${!v:-}" ]; then
             missing+=("$v")
@@ -63,7 +63,7 @@ TG_BOT_REF=""
 _tg_resolve_bot() {
     [ -n "$TG_BOT_REF" ] && return 0
     local resp username
-    resp=$(curl -sf "https://api.telegram.org/bot${AICODEBOX_TELEGRAM_BOT_TOKEN}/getMe")
+    resp=$(curl -sf "https://api.telegram.org/bot${AICODEBOX_TELEGRAM_MODE_TOKEN}/getMe")
     username=$(echo "$resp" | python3 -c 'import json,sys
 print((json.load(sys.stdin).get("result") or {}).get("username", ""))')
     if [ -z "$username" ]; then
@@ -74,7 +74,7 @@ print((json.load(sys.stdin).get("result") or {}).get("username", ""))')
     log "  OK: bot resolved as $TG_BOT_REF"
 }
 
-_tg_bot_user_id() { echo "${AICODEBOX_TELEGRAM_BOT_TOKEN%%:*}"; }
+_tg_bot_user_id() { echo "${AICODEBOX_TELEGRAM_MODE_TOKEN%%:*}"; }
 
 _tg_curl() {
     curl -sS -H "Authorization: Bearer $TELETHON_AUTH_KEY" "$@"
@@ -154,9 +154,9 @@ _tg_start_bot() {
         --network host \
         -v "$TG_TMP/workspace:/workspace" \
         -v "$TG_TMP/home/.aicodebox:/home/aicode/.aicodebox" \
-        -e "AICODEBOX_MODE_TELEGRAM=1" \
+        -e "AICODEBOX_TELEGRAM_MODE=1" \
         -e "AICODEBOX_WORKSPACE=/workspace" \
-        -e "AICODEBOX_TELEGRAM_BOT_TOKEN=$AICODEBOX_TELEGRAM_BOT_TOKEN" \
+        -e "AICODEBOX_TELEGRAM_MODE_TOKEN=$AICODEBOX_TELEGRAM_MODE_TOKEN" \
         -e "TELEGRAM_CHAT_ID=$TELEGRAM_CHAT_ID" \
         -e "ANTHROPIC_AUTH_TOKEN=$ANTHROPIC_AUTH_TOKEN" \
         -e "ANTHROPIC_API_KEY=$ANTHROPIC_AUTH_TOKEN" \
@@ -197,7 +197,7 @@ test_tg_unit_md_to_html() {
     local cname="${CONTAINER_PREFIX}-tg-unit-$$"
     local rc out
     out=$(docker run --rm --name "$cname" \
-        -e "AICODEBOX_TELEGRAM_BOT_TOKEN=dummy:dummy" \
+        -e "AICODEBOX_TELEGRAM_MODE_TOKEN=dummy:dummy" \
         --entrypoint python3 \
         "$IMAGE" -c '
 from aicodebox.modes.telegram.utils import md_to_tg_html
@@ -293,7 +293,7 @@ test_tg_long_response() {
     local cname="${CONTAINER_PREFIX}-tg-long-$$"
     local rc out
     out=$(docker run --rm --name "$cname" \
-        -e "AICODEBOX_TELEGRAM_BOT_TOKEN=dummy:dummy" \
+        -e "AICODEBOX_TELEGRAM_MODE_TOKEN=dummy:dummy" \
         --entrypoint python3 \
         "$IMAGE" -c '
 import asyncio

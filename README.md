@@ -33,8 +33,8 @@ docker run --rm \
 
 # API server
 docker run -d --network host \
-  -e PIBOX_MODE_API=1 \
-  -e PIBOX_MODE_API_TOKEN=your-secret \
+  -e PIBOX_API_MODE=1 \
+  -e PIBOX_API_MODE_TOKEN=your-secret \
   -e ANTHROPIC_AUTH_TOKEN=your-token \
   -e ANTHROPIC_BASE_URL=https://api.z.ai/api/anthropic \
   -e ANTHROPIC_MODEL=glm-4.6 \
@@ -44,11 +44,13 @@ docker run -d --network host \
 
 ## Modes
 
-One mode per container, with one exception: `PIBOX_MODE_TELEGRAM=1` and `PIBOX_MODE_CRON=1` can run together — cron runs in-thread inside the telegram process. API mode always takes priority if set alongside anything else.
+**Foreground modes** (API / Telegram / Cron) are mutually exclusive — except `PIBOX_TELEGRAM_MODE=1` + `PIBOX_CRON_MODE=1`, which run together (cron in-thread inside telegram). API wins if set alongside anything else.
+
+**MCP mode** (`PIBOX_MCP_MODE=1`) is independent — it coexists with whatever foreground mode is running. In API mode it's mounted at `/mcp` on the API port; in other modes it runs as a sidecar uvicorn on its own port.
 
 ### API mode
 
-`PIBOX_MODE_API=1`. FastAPI server on `:8080` (override with `PIBOX_MODE_API_PORT`).
+`PIBOX_API_MODE=1`. FastAPI server on `:8080` (override with `PIBOX_API_MODE_PORT`).
 
 | Method | Path | What it does |
 |--------|------|--------------|
@@ -64,7 +66,7 @@ One mode per container, with one exception: `PIBOX_MODE_TELEGRAM=1` and `PIBOX_M
 | `DELETE` | `/files/{path}` | delete a file (refuses directories — 400) |
 | `POST` | `/v1/chat/completions` | OpenAI-compatible (streaming + non-streaming) |
 | `GET` | `/v1/models` | model list |
-| `POST` | `/mcp` | MCP server (streamable HTTP) |
+| `POST` | `/mcp` | MCP server (streamable HTTP) — mounted only when `PIBOX_MCP_MODE=1` |
 
 All `/files/*` paths are resolved against the workspace root with traversal checking — `..` segments that escape the root return 400. Same `Authorization: Bearer ...` token gates them as the rest of the API.
 
@@ -99,7 +101,7 @@ curl -s http://localhost:8080/run \
 
 ### Telegram mode
 
-`PIBOX_MODE_TELEGRAM=1` + `PIBOX_TELEGRAM_BOT_TOKEN=<token>`.
+`PIBOX_TELEGRAM_MODE=1` + `PIBOX_TELEGRAM_MODE_TOKEN=<token>`.
 
 - Text in → pi runs → Markdown→HTML rendered response back.
 - File uploads land in the chat's workspace. `[SEND_FILE: path]` in pi's output delivers workspace files as Telegram attachments.
@@ -107,7 +109,7 @@ curl -s http://localhost:8080/run \
 - `/cancel` kills the in-flight run. `/reload` re-reads config. `/config` dumps merged settings. `/fetch <path>` downloads a file.
 - Replies to cron messages inject the job's instruction + result so pi has full context for follow-ups.
 
-Config at `$HOME/.aicodebox/telegram.yml` (override via `PIBOX_TELEGRAM_CONFIG`):
+Config at `$HOME/.aicodebox/telegram.yml` (override via `PIBOX_TELEGRAM_MODE_CONFIG`):
 
 ```yaml
 allowed_chats: [-100123, 42]
@@ -122,7 +124,7 @@ chats:
 
 ### Cron mode
 
-`PIBOX_MODE_CRON=1` + `PIBOX_MODE_CRON_FILE=/path/to/cron.yaml`. 6-field schedules via croniter. Each job fires pi with the given instruction.
+`PIBOX_CRON_MODE=1` + `PIBOX_CRON_MODE_FILE=/path/to/cron.yaml`. 6-field schedules via croniter. Each job fires pi with the given instruction.
 
 ```yaml
 jobs:
@@ -139,28 +141,60 @@ jobs:
 
 Each run gets a history dir at `$HOME/.aicodebox/cron/history/<workspace>/<timestamp>-<job>/` with `meta.json`, `stdout.log`, `stderr.log`, `result.txt`. If telegram is configured, `telegram.json` lands there too and the next run's prompt gets a "prior run" hint so pi can reference its own history without you wiring it up.
 
+### MCP mode
+
+`PIBOX_MCP_MODE=1`. Exposes the MCP (Model Context Protocol) surface — `run_prompt`, `list_files`, `read_file`, `write_file`, `delete_file` as tools. Coexists with any foreground mode:
+
+| Foreground | MCP placement |
+|---|---|
+| API mode (`PIBOX_API_MODE=1`) | mounted at `/mcp` on the API port — no extra process |
+| Telegram / Cron / passthrough | sidecar uvicorn on `PIBOX_MCP_MODE_PORT` (default `8081`) |
+
+Auth: `PIBOX_MCP_MODE_TOKEN=<token>` — bearer in the `Authorization: Bearer …` header, or `?apiToken=…` for clients that can't set headers. Empty = no auth. **No fallback to `API_MODE_TOKEN`** — MCP has its own bearer.
+
 ## Configuration
 
-Every var below is `PIBOX_*`. The image is built on top of [aicodebox](https://github.com/psyb0t/docker-aicodebox), so the original `AICODEBOX_*` names also work — the entrypoint translates `PIBOX_X` to `AICODEBOX_X` when only the pibox-prefixed one is set. If you set both, `AICODEBOX_*` wins.
+Naming convention: `PIBOX_<MODE>_MODE=1` is the on/off flag, `PIBOX_<MODE>_MODE_<KNOB>=...` is its config. Non-mode-scoped vars (workspace, container name, available models) are bare.
 
-### Modes
+The image is built on top of [aicodebox](https://github.com/psyb0t/docker-aicodebox), so the equivalent `AICODEBOX_*` names also work — the entrypoint translates `PIBOX_X` to `AICODEBOX_X` when only the pibox-prefixed one is set. If you set both, `AICODEBOX_*` wins.
 
-| Var | Default | What it does |
-|-----|---------|--------------|
-| `PIBOX_MODE_API` | `0` | Boot the HTTP API server |
-| `PIBOX_MODE_API_PORT` | `8080` | Port the API server binds to |
-| `PIBOX_MODE_API_TOKEN` | empty | Bearer token required on every API + MCP request. Unset = no auth |
-| `PIBOX_MODE_TELEGRAM` | `0` | Boot the Telegram bot |
-| `PIBOX_MODE_CRON` | `0` | Boot the cron scheduler (also runs in-thread when telegram mode is on) |
-| `PIBOX_MODE_CRON_FILE` | — | Path to the cron yaml |
-
-### Telegram
+### Mode flags
 
 | Var | Default | What it does |
 |-----|---------|--------------|
-| `PIBOX_TELEGRAM_BOT_TOKEN` | — | Bot token from @BotFather |
-| `PIBOX_TELEGRAM_CONFIG` | `~/.aicodebox/telegram.yml` | Path to the telegram config yaml |
-| `PIBOX_TELEGRAM_OVERRIDES` | `~/.aicodebox/telegram-overrides.json` | Path to the per-chat override store (model/effort/system prompts) |
+| `PIBOX_API_MODE` | `0` | Boot the HTTP API server (foreground) |
+| `PIBOX_TELEGRAM_MODE` | `0` | Boot the Telegram bot (foreground) |
+| `PIBOX_CRON_MODE` | `0` | Boot the cron scheduler (foreground; in-thread when telegram is also on) |
+| `PIBOX_MCP_MODE` | `0` | Expose MCP — mounted at `/mcp` in API mode, or as a sidecar elsewhere |
+
+### API mode config
+
+| Var | Default | What it does |
+|-----|---------|--------------|
+| `PIBOX_API_MODE_PORT` | `8080` | Port the API server binds to |
+| `PIBOX_API_MODE_TOKEN` | empty | Bearer token for the API surface. Empty = no auth |
+
+### Telegram mode config
+
+| Var | Default | What it does |
+|-----|---------|--------------|
+| `PIBOX_TELEGRAM_MODE_TOKEN` | — | Bot token from @BotFather |
+| `PIBOX_TELEGRAM_MODE_CONFIG` | `~/.aicodebox/telegram.yml` | Path to the telegram config yaml |
+| `PIBOX_TELEGRAM_MODE_OVERRIDES` | `~/.aicodebox/telegram_overrides.json` | Per-chat override store (model/effort/system prompts) |
+
+### Cron mode config
+
+| Var | Default | What it does |
+|-----|---------|--------------|
+| `PIBOX_CRON_MODE_FILE` | — | Path to the cron yaml |
+| `PIBOX_CRON_MODE_HISTORY_DIR` | `~/.aicodebox/cron/history` | Where cron writes per-run history dirs (`meta.json`, `stdout.log`, `stderr.log`, `result.txt`, `telegram.json`) |
+
+### MCP mode config
+
+| Var | Default | What it does |
+|-----|---------|--------------|
+| `PIBOX_MCP_MODE_PORT` | `8081` | Port the sidecar MCP server binds to (ignored when mounted inside API) |
+| `PIBOX_MCP_MODE_TOKEN` | empty | Bearer token for MCP. Empty = no auth. **No fallback to `API_MODE_TOKEN`** |
 
 ### Workspace & runtime
 
@@ -170,7 +204,6 @@ Every var below is `PIBOX_*`. The image is built on top of [aicodebox](https://g
 | `PIBOX_CONTAINER_NAME` | `aicodebox` | Used to scope per-container state files (auth, etc.) |
 | `PIBOX_AVAILABLE_MODELS` | adapter list | Override the model list returned by `/v1/models` and the telegram `/model` picker (comma-separated) |
 | `PIBOX_AVAILABLE_EFFORTS` | adapter list | Override the effort/`--thinking` list shown by the telegram `/effort` picker (comma-separated) |
-| `PIBOX_CRON_HISTORY_DIR` | `~/.aicodebox/cron/history` | Where cron writes per-run history dirs (`meta.json`, `stdout.log`, `stderr.log`, `result.txt`, `telegram.json`) |
 
 ## Auth
 
@@ -209,7 +242,7 @@ $EDITOR .env.test   # fill in ANTHROPIC_* and optionally Telegram creds
 make test
 ```
 
-Telegram tests auto-skip if `PIBOX_TELEGRAM_BOT_TOKEN` is empty. Everything else only needs `ANTHROPIC_AUTH_TOKEN` + `ANTHROPIC_BASE_URL`.
+Telegram tests auto-skip if `AICODEBOX_TELEGRAM_MODE_TOKEN` is empty. Everything else only needs `ANTHROPIC_AUTH_TOKEN` + `ANTHROPIC_BASE_URL`.
 
 ## License
 

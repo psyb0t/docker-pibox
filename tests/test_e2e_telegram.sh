@@ -17,7 +17,7 @@
 # wrapper, container lifecycle). Required env (loaded by common.sh from
 # .env.test, which is gitignored):
 #
-#   AICODEBOX_TELEGRAM_BOT_TOKEN
+#   AICODEBOX_TELEGRAM_MODE_TOKEN
 #   TELEGRAM_CHAT_ID
 #   TELETHON_API_ID, TELETHON_API_HASH, TELETHON_SESSION, TELETHON_AUTH_KEY
 #

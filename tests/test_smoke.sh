@@ -61,9 +61,9 @@ test_jsonschema_pi() {
 
     docker run -d --name "$cname" "${DOCKER_RUN_BASE[@]}" \
         -e "AICODEBOX_CONTAINER_NAME=$cname" \
-        -e "AICODEBOX_MODE_API=1" \
-        -e "AICODEBOX_MODE_API_PORT=$port" \
-        -e "AICODEBOX_MODE_API_TOKEN=$token" \
+        -e "AICODEBOX_API_MODE=1" \
+        -e "AICODEBOX_API_MODE_PORT=$port" \
+        -e "AICODEBOX_API_MODE_TOKEN=$token" \
         -p "127.0.0.1:$port:$port" \
         "$IMAGE" >/dev/null
 

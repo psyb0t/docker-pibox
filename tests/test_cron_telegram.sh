@@ -5,7 +5,7 @@
 
 _ct_check_env() {
     local missing=()
-    for v in AICODEBOX_TELEGRAM_BOT_TOKEN TELEGRAM_CHAT_ID \
+    for v in AICODEBOX_TELEGRAM_MODE_TOKEN TELEGRAM_CHAT_ID \
              TELETHON_API_ID TELETHON_API_HASH TELETHON_SESSION TELETHON_AUTH_KEY; do
         if [ -z "${!v:-}" ]; then
             missing+=("$v")
@@ -62,7 +62,7 @@ CT_BOT_REF=""
 _ct_resolve_bot() {
     [ -n "$CT_BOT_REF" ] && return 0
     local resp username
-    resp=$(curl -sf "https://api.telegram.org/bot${AICODEBOX_TELEGRAM_BOT_TOKEN}/getMe")
+    resp=$(curl -sf "https://api.telegram.org/bot${AICODEBOX_TELEGRAM_MODE_TOKEN}/getMe")
     username=$(echo "$resp" | python3 -c 'import json,sys
 print((json.load(sys.stdin).get("result") or {}).get("username", ""))')
     if [ -z "$username" ]; then
@@ -73,7 +73,7 @@ print((json.load(sys.stdin).get("result") or {}).get("username", ""))')
     log "  OK: bot resolved as $CT_BOT_REF"
 }
 
-_ct_bot_user_id() { echo "${AICODEBOX_TELEGRAM_BOT_TOKEN%%:*}"; }
+_ct_bot_user_id() { echo "${AICODEBOX_TELEGRAM_MODE_TOKEN%%:*}"; }
 
 _ct_curl() {
     curl -sS -H "Authorization: Bearer $TELETHON_AUTH_KEY" "$@"
@@ -161,11 +161,11 @@ _ct_start_container() {
         -v "$hostdir/workspace:/workspace" \
         -v "$hostdir/home/.aicodebox:/home/aicode/.aicodebox" \
         -v "$hostdir/cron.yaml:/cron.yaml:ro" \
-        -e "AICODEBOX_MODE_CRON=1" \
-        -e "AICODEBOX_MODE_TELEGRAM=1" \
-        -e "AICODEBOX_MODE_CRON_FILE=/cron.yaml" \
+        -e "AICODEBOX_CRON_MODE=1" \
+        -e "AICODEBOX_TELEGRAM_MODE=1" \
+        -e "AICODEBOX_CRON_MODE_FILE=/cron.yaml" \
         -e "AICODEBOX_WORKSPACE=/workspace" \
-        -e "AICODEBOX_TELEGRAM_BOT_TOKEN=$AICODEBOX_TELEGRAM_BOT_TOKEN" \
+        -e "AICODEBOX_TELEGRAM_MODE_TOKEN=$AICODEBOX_TELEGRAM_MODE_TOKEN" \
         -e "TELEGRAM_CHAT_ID=$TELEGRAM_CHAT_ID" \
         -e "ANTHROPIC_AUTH_TOKEN=$ANTHROPIC_AUTH_TOKEN" \
         -e "ANTHROPIC_API_KEY=$ANTHROPIC_AUTH_TOKEN" \
