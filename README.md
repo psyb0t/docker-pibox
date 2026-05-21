@@ -35,6 +35,7 @@ docker run --rm \
 docker run -d --network host \
   -e PIBOX_API_MODE=1 \
   -e PIBOX_API_MODE_TOKEN=your-secret \
+  -e PIBOX_AVAILABLE_MODELS=glm-4.6,glm-4.5-air \
   -e ANTHROPIC_AUTH_TOKEN=your-token \
   -e ANTHROPIC_BASE_URL=https://api.z.ai/api/anthropic \
   -e ANTHROPIC_MODEL=glm-4.6 \
@@ -51,6 +52,8 @@ docker run -d --network host \
 ### API mode
 
 `PIBOX_API_MODE=1`. FastAPI server on `:8080` (override with `PIBOX_API_MODE_PORT`).
+
+> **Required:** `PIBOX_AVAILABLE_MODELS=<csv>` (e.g. `glm-4.6,claude-sonnet-4-6`). API mode refuses to boot without it — `/v1/models` needs a real list and there's no sensible default (pi can drive any provider's models). Pick the ones your configured `ANTHROPIC_BASE_URL` / provider actually serves.
 
 | Method | Path | What it does |
 |--------|------|--------------|
@@ -202,7 +205,7 @@ The image is built on top of [aicodebox](https://github.com/psyb0t/docker-aicode
 |-----|---------|--------------|
 | `PIBOX_WORKSPACE` | `/workspace` | Root workspace dir inside the container |
 | `PIBOX_CONTAINER_NAME` | `aicodebox` | Used to scope per-container state files (auth, etc.) |
-| `PIBOX_AVAILABLE_MODELS` | adapter list | Override the model list returned by `/v1/models` and the telegram `/model` picker (comma-separated) |
+| `PIBOX_AVAILABLE_MODELS` | — | **Required for API mode.** CSV list returned by `/v1/models` and shown in the telegram `/model` picker. API mode refuses to boot without it; telegram `/model` picker degrades to a "set this env var" reply. |
 | `PIBOX_AVAILABLE_EFFORTS` | adapter list | Override the effort/`--thinking` list shown by the telegram `/effort` picker (comma-separated) |
 
 ## Auth
