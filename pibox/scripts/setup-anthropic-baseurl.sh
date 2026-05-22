@@ -8,8 +8,13 @@
 # redirects the built-in provider to that base URL and reuses the same auth
 # env var.
 #
-# Idempotent: skips if models.json already declares a custom anthropic
-# baseUrl. Runs once via the entrypoint init.d on first start.
+# Idempotent: the anthropic provider entry is rewritten on every boot
+# (jq-merged into any existing models.json), so changes to
+# ANTHROPIC_BASE_URL / ANTHROPIC_MODEL pick up on container restart even
+# when ~/.pi is a persisted volume.
+#
+# Invoked from /usr/local/bin/pibox-entrypoint via `sudo -E -u aicode -H`,
+# so it always runs as the aicode user with HOME=/home/aicode.
 set -e
 
 if [ -z "$ANTHROPIC_BASE_URL" ]; then

@@ -41,4 +41,15 @@ done
 
 unset _PIBOX_ALIASES _suffix _pibox_var _aicode_var _pibox_val _aicode_val
 
+# pi has no native ANTHROPIC_BASE_URL support — it reads the base URL from
+# ~/.pi/agent/models.json. Regenerate the anthropic provider entry on every
+# boot so changes to ANTHROPIC_BASE_URL / ANTHROPIC_MODEL pick up even when
+# the home dir is a persisted volume. (Old layout ran this via init.d which
+# only fires once per container lifetime — fine for ephemeral runs, broken
+# the moment ~/.aicodebox or ~/.pi is bind-mounted.)
+if [ -n "${ANTHROPIC_BASE_URL:-}" ] && [ -x /opt/pibox/scripts/setup-anthropic-baseurl.sh ]; then
+    sudo -E -u aicode -H bash /opt/pibox/scripts/setup-anthropic-baseurl.sh \
+        || echo "[pibox-entrypoint] setup-anthropic-baseurl.sh failed (non-fatal)" >&2
+fi
+
 exec /usr/local/bin/aicodebox-entrypoint "$@"
