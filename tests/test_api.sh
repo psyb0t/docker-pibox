@@ -127,75 +127,57 @@ test_api_run_async() {
     return 1
 }
 
-test_api_run_verbose() {
+test_api_run_lean_default() {
     _api_start "" || return 1
-    # v0.5.0 contract: ``verbose=true`` swaps the lean default response
-    # ({runId, workspace, exitCode, text}) for the full one — adds the
-    # adapter's structured event log, sessionId, and usage alongside text.
-    # No more outputFormat enum; ``verbose`` is the only switch for the
-    # wire-shape decision.
+    # v0.6.0 contract: with no jsonSchema set, /run returns the lean shape:
+    # {runId, workspace, exitCode, text}. No events, no sessionId, no usage,
+    # no json. The full diagnostic surface is opt-in via jsonSchema only.
+    local body
+    body=$(_curl_auth -m 120 -X POST "$API_URL/run" \
+        -H "Content-Type: application/json" \
+        -d '{"prompt":"Reply with exactly one word: HELLO. Nothing else.","noContinue":true,"noTools":true}')
+
+    local text_val
+    text_val=$(echo "$body" | jq -r '.text // ""')
+    assert_contains "$text_val" "HELLO" "lean response carries .text with HELLO" || return 1
+
+    # Lean default drops the verbose-only fields. Confirm absence.
+    local has_events has_session_id has_usage has_json
+    has_events=$(echo "$body" | jq 'has("events")')
+    has_session_id=$(echo "$body" | jq 'has("sessionId")')
+    has_usage=$(echo "$body" | jq 'has("usage")')
+    has_json=$(echo "$body" | jq 'has("json")')
+    assert_eq "$has_events" "false" "lean response omits .events" || return 1
+    assert_eq "$has_session_id" "false" "lean response omits .sessionId" || return 1
+    assert_eq "$has_usage" "false" "lean response omits .usage" || return 1
+    assert_eq "$has_json" "false" "lean response omits .json"
+}
+
+test_api_run_legacy_verbose_ignored() {
+    _api_start "" || return 1
+    # v0.6.0 dropped the v0.5.0-era ``verbose`` field. Pydantic's default
+    # ``extra=ignore`` policy means stale callers passing ``verbose=true``
+    # silently drop the field — response shape is still lean. Regression
+    # catch in case someone re-adds the field or flips extras to forbid.
     local body
     body=$(_curl_auth -m 120 -X POST "$API_URL/run" \
         -H "Content-Type: application/json" \
         -d '{"prompt":"Reply with exactly one word: HELLO. Nothing else.","verbose":true,"noContinue":true,"noTools":true}')
 
-    # The events array is whatever the adapter decoded from raw stdout via
-    # parse_events(); for pi that's the full NDJSON event stream.
-    local events_len
-    events_len=$(echo "$body" | jq -r '.events | length' 2>/dev/null)
-    if ! [[ "$events_len" =~ ^[0-9]+$ ]] || [ "$events_len" -lt 5 ]; then
-        log "  FAIL: events array missing or too short (len=$events_len)"
-        log "  body: ${body:0:500}"
-        return 1
-    fi
-    log "  OK: .events array has $events_len entries"
-
-    # Unlike v0.4.0's json-verbose, verbose responses carry .text alongside
-    # the events — verbose is wire-format richness, not LLM output style.
-    local text_val has_json
+    local text_val has_events
     text_val=$(echo "$body" | jq -r '.text // ""')
-    assert_contains "$text_val" "HELLO" "verbose response has .text with HELLO" || return 1
-
-    # No schema means no .json field — that only appears when jsonSchema
-    # is also set.
-    has_json=$(echo "$body" | jq 'has("json")')
-    assert_eq "$has_json" "false" "verbose-without-schema has no .json field" || return 1
-
-    # pi's event stream MUST surface a session event with an id and at least
-    # one assistant message_end carrying the marker — that's the structural
-    # proof parse_events is decoding the NDJSON correctly.
-    local has_session
-    has_session=$(echo "$body" | jq -r '
-        any(.events[]; .type=="session" and (.id | type=="string") and .id != "")
-    ')
-    assert_eq "$has_session" "true" "events contain a session event with id" || return 1
-
-    local asst_text
-    asst_text=$(echo "$body" | jq -r '
-        [.events[]
-            | select(.type=="message_end" and .message.role=="assistant")
-            | .message.content
-            | if type=="string" then .
-              elif type=="array" then
-                  [.[] | select(.type=="text") | .text] | join(" ")
-              else "" end
-        ] | join(" ")
-    ')
-    assert_contains "$asst_text" "HELLO" "assistant message_end content contains HELLO" || return 1
-
-    # Top-level .sessionId / .usage are surfaced only when verbose=true
-    # (the lean default drops them to keep the wire minimal).
-    local has_session_id
-    has_session_id=$(echo "$body" | jq -r '.sessionId | type=="string" and . != ""')
-    assert_eq "$has_session_id" "true" "verbose response surfaces .sessionId"
+    assert_contains "$text_val" "HELLO" "legacy-verbose call still returns .text with HELLO" || return 1
+    has_events=$(echo "$body" | jq 'has("events")')
+    assert_eq "$has_events" "false" "legacy verbose=true was silently dropped (no .events)"
 }
 
 test_api_run_json_mode() {
     _api_start "" || return 1
-    # v0.5.0 contract: setting ``jsonSchema`` (no verbose) yields a clean
-    # response with the decoded object under .json and no .text. Schema
+    # v0.6.0 contract: ``jsonSchema`` is the only dial. Schema-set runs
+    # always get the full diagnostic surface — decoded object under .json
+    # PLUS .text + .events + .sessionId + .usage alongside it. Schema
     # validation + up-to-3 self-correction retries happen at the base
-    # layer; the adapter just bolts the schema onto the system prompt.
+    # layer; the adapter just bolts the schema onto pi's system prompt.
     local body
     body=$(_curl_auth -m 180 -X POST "$API_URL/run" \
         -H "Content-Type: application/json" \
@@ -209,77 +191,43 @@ test_api_run_json_mode() {
         return 1
     fi
 
-    # On success, .json is the decoded object and .text is absent.
-    local has_json has_text
+    # Schema mode emits the whole diagnostic surface — no missing fields.
+    local has_json has_text has_events has_session_id has_usage
     has_json=$(echo "$body" | jq 'has("json")')
     has_text=$(echo "$body" | jq 'has("text")')
-    assert_eq "$has_json" "true" "json-mode success populates .json" || return 1
-    # If the model needed retries, .text comes back alongside .parseError —
-    # but on a clean parse, .text must NOT be in the response.
-    local parse_error
-    parse_error=$(echo "$body" | jq -r '.parseError // ""')
-    if [ -z "$parse_error" ] && [ "$has_text" = "true" ]; then
-        log "  FAIL: json-mode success leaked .text into response (should be omitted)"
-        log "  body: ${body:0:500}"
-        return 1
-    fi
-
-    local word
-    word=$(echo "$body" | jq -r '.json.word')
-    if [[ "${word^^}" != *"HELLO"* ]]; then
-        log "  FAIL: json.word=$word (expected HELLO)"
-        return 1
-    fi
-    log "  OK: json mode returned .json.word=$word"
-}
-
-test_api_run_json_with_verbose() {
-    _api_start "" || return 1
-    # v0.5.0 contract: ``jsonSchema`` + ``verbose=true`` compose freely —
-    # the response carries BOTH the schema-validated object under .json AND
-    # the adapter's event log under .events. v0.4.0 forbade this combination
-    # at the base; v0.5.0 lets callers debug schema failures by reading the
-    # turn-level event stream alongside the parsed object.
-    local body
-    body=$(_curl_auth -m 180 -X POST "$API_URL/run" \
-        -H "Content-Type: application/json" \
-        -d '{"prompt":"Produce a JSON object where the word field is exactly the string HELLO.","jsonSchema":{"type":"object","properties":{"word":{"type":"string"}},"required":["word"]},"verbose":true,"noContinue":true,"noTools":true}')
-
-    local exit_code
-    exit_code=$(echo "$body" | jq -r '.exitCode')
-    if [ "$exit_code" != "0" ]; then
-        log "  FAIL: combo mode exit_code=$exit_code"
-        log "  body: ${body:0:500}"
-        return 1
-    fi
-
-    # Both .json (decoded object) and .events (event log) must be present.
-    local has_json has_events events_len
-    has_json=$(echo "$body" | jq 'has("json")')
-    assert_eq "$has_json" "true" "combo response has .json" || return 1
     has_events=$(echo "$body" | jq 'has("events")')
-    assert_eq "$has_events" "true" "combo response has .events" || return 1
+    has_session_id=$(echo "$body" | jq 'has("sessionId")')
+    has_usage=$(echo "$body" | jq 'has("usage")')
+    assert_eq "$has_json" "true" "schema mode populates .json" || return 1
+    assert_eq "$has_text" "true" "schema mode also surfaces .text alongside .json" || return 1
+    assert_eq "$has_events" "true" "schema mode surfaces .events" || return 1
+    assert_eq "$has_session_id" "true" "schema mode surfaces .sessionId" || return 1
+    assert_eq "$has_usage" "true" "schema mode surfaces .usage" || return 1
+
+    local events_len
     events_len=$(echo "$body" | jq -r '.events | length')
     if ! [[ "$events_len" =~ ^[0-9]+$ ]] || [ "$events_len" -lt 3 ]; then
-        log "  FAIL: combo events too short (len=$events_len)"
+        log "  FAIL: schema-mode .events too short (len=$events_len)"
+        log "  body: ${body:0:500}"
         return 1
     fi
 
     local word
     word=$(echo "$body" | jq -r '.json.word')
     if [[ "${word^^}" != *"HELLO"* ]]; then
-        log "  FAIL: combo .json.word=$word (expected HELLO)"
+        log "  FAIL: .json.word=$word (expected HELLO)"
         return 1
     fi
-    log "  OK: combo returned .json.word=$word with $events_len events"
+    log "  OK: schema mode returned .json.word=$word with $events_len events"
 }
 
 test_api_run_include_raw() {
     _api_start "" || return 1
     # includeRaw is opt-in (v0.4.0+). Default responses do NOT carry raw
     # stdout/stderr — the adapter's NDJSON stream can balloon to megabytes
-    # in verbose mode and most callers don't need it. Confirm both
-    # directions: default omits them, includeRaw=true surfaces them.
+    # for schema-set runs (which use json-verbose internally) and most
+    # callers don't need it. Confirm both directions: default omits them,
+    # includeRaw=true surfaces them.
     local body_default body_raw
     body_default=$(_curl_auth -m 120 -X POST "$API_URL/run" \
         -H "Content-Type: application/json" \
@@ -707,9 +655,9 @@ ALL_TESTS+=(
     test_api_healthz
     test_api_run_sync
     test_api_run_async
-    test_api_run_verbose
+    test_api_run_lean_default
+    test_api_run_legacy_verbose_ignored
     test_api_run_json_mode
-    test_api_run_json_with_verbose
     test_api_run_include_raw
     test_api_auth
     test_api_unknown_run

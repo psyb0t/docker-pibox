@@ -83,10 +83,11 @@ test_jsonschema_pi() {
         return 1
     fi
 
-    # Setting jsonSchema (with verbose unset) means: base parses .text as
-    # JSON, validates against the schema, and retries up to 3 times if the
-    # model produces malformed output. Success surfaces the decoded object
-    # under .json (no .text in the response). v0.5.0 contract.
+    # Setting jsonSchema means: base parses .text as JSON, validates
+    # against the schema, and retries up to 3 times if the model produces
+    # malformed output. Success surfaces the decoded object under .json
+    # alongside .text/.events/.sessionId/.usage (full diagnostic surface
+    # — v0.6.0 contract, schema-set is always-verbose).
     local payload='{
         "prompt": "Produce a JSON object where the word field is exactly the string HELLO.",
         "model": "'"$TEST_MODEL"'",

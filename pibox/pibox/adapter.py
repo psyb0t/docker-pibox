@@ -43,10 +43,10 @@ class PiAdapter(AgentAdapter):
     ]
 
     def validate(self, req: RunRequest) -> None:
-        # Base owns output_format vocab. Since aicodebox v0.5.0 the API
-        # exposes verbose+jsonSchema as orthogonal flags and the server
-        # derives output_format from them — no mutex to enforce here.
-        # Adapter only adds pi-specific constraints.
+        # Base owns output_format vocab. Since aicodebox v0.6.0 the API
+        # exposes ``jsonSchema`` as the only dial — server derives
+        # output_format=json-verbose when schema is set, else text. The
+        # adapter only adds pi-specific constraints.
         super().validate(req)
         if req.thinking and req.thinking not in VALID_THINKING:
             raise ValueError(
@@ -128,10 +128,11 @@ class PiAdapter(AgentAdapter):
         `parse_output` populates only the fields the modes actually consume
         off RunResult — text, session_id, usage. The structured event log is
         exposed separately via ``parse_events`` when ``output_format=
-        json-verbose`` (selected by the API's ``verbose=true`` flag).
-        Schema parsing + retry orchestration lives at the base layer; the
-        adapter just needs to deliver the model's raw text in
-        ``result.text`` so the base can validate it against ``jsonSchema``.
+        json-verbose`` (which the API picks unconditionally whenever
+        ``jsonSchema`` is set, per the aicodebox v0.6.0 contract). Schema
+        parsing + retry orchestration lives at the base layer; the adapter
+        just needs to deliver the model's raw text in ``result.text`` so
+        the base can validate it against ``jsonSchema``.
         """
         del req
         session_id = ""
