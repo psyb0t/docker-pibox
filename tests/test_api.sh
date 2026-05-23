@@ -44,6 +44,7 @@ _api_start() {
         -e "AICODEBOX_API_MODE=1" \
         -e "AICODEBOX_API_MODE_PORT=$port" \
         -e "AICODEBOX_MCP_MODE=1" \
+        -e "AICODEBOX_AVAILABLE_MODELS=$TEST_MODEL" \
         -e "ANTHROPIC_AUTH_TOKEN=$ANTHROPIC_AUTH_TOKEN" \
         -e "ANTHROPIC_API_KEY=$ANTHROPIC_AUTH_TOKEN" \
         -e "ANTHROPIC_BASE_URL=$ANTHROPIC_BASE_URL" \
@@ -124,6 +125,103 @@ test_api_run_async() {
     done
     log "  FAIL: async run never completed in 120s (last: $poll)"
     return 1
+}
+
+test_api_run_json_verbose() {
+    _api_start "" || return 1
+    local body
+    body=$(_curl_auth -m 120 -X POST "$API_URL/run" \
+        -H "Content-Type: application/json" \
+        -d '{"prompt":"Reply with exactly one word: HELLO. Nothing else.","outputFormat":"json-verbose","noContinue":true,"noTools":true}')
+
+    # Flat text contract still honoured. Check the top-level .text field
+    # specifically — not the full body, which would trivially match the
+    # prompt echo inside the user turn.
+    local flat_text
+    flat_text=$(echo "$body" | jq -r '.text')
+    assert_contains "$flat_text" "HELLO" "json-verbose still populates flat .text with HELLO" || return 1
+
+    # Envelope lives under .parsed — surface it via jq once so subsequent
+    # assertions don't each respawn a parser.
+    local parsed
+    parsed=$(echo "$body" | jq -c '.parsed' 2>/dev/null)
+    if [ -z "$parsed" ] || [ "$parsed" = "null" ]; then
+        log "  FAIL: json-verbose did not populate .parsed"
+        log "  body: ${body:0:500}"
+        return 1
+    fi
+
+    # Required envelope keys: sessionId, model, stopReason, turns, usage, text.
+    local missing
+    missing=$(echo "$parsed" | jq -r '
+        ["sessionId","model","stopReason","turns","usage","text"]
+        - (keys_unsorted) | join(",")
+    ')
+    if [ -n "$missing" ]; then
+        log "  FAIL: envelope missing keys: $missing"
+        log "  parsed: ${parsed:0:500}"
+        return 1
+    fi
+    log "  OK: envelope has sessionId/model/stopReason/turns/usage/text"
+
+    # Turns must contain at least the user prompt + an assistant reply.
+    local turn_count
+    turn_count=$(echo "$parsed" | jq -r '.turns | length')
+    if [ "$turn_count" -lt 2 ]; then
+        log "  FAIL: turns count=$turn_count (expected ≥2)"
+        return 1
+    fi
+    log "  OK: turns array has $turn_count entries"
+
+    # Assistant turn must carry a text block whose content contains the
+    # marker — this is the structural proof that block-level content is
+    # being captured, not just the flat `text` mirror.
+    local asst_text
+    asst_text=$(echo "$parsed" | jq -r '
+        [.turns[] | select(.role=="assistant") | .content[] |
+         select(.type=="text") | .text] | join(" ")
+    ')
+    assert_contains "$asst_text" "HELLO" "assistant turn .content[].text contains HELLO" || return 1
+
+    # Usage carries BOTH naming conventions (pi-native input/output AND
+    # OAI-style input_tokens/output_tokens — the adapter aliases the pair
+    # so /openai/v1/chat/completions returns real counts).
+    local has_aliases
+    has_aliases=$(echo "$parsed" | jq -r '
+        (.usage|has("input")) and (.usage|has("output")) and
+        (.usage|has("input_tokens")) and (.usage|has("output_tokens"))
+    ')
+    assert_eq "$has_aliases" "true" "usage has both input/output AND input_tokens/output_tokens"
+}
+
+test_api_run_json_verbose_rejects_schema() {
+    _api_start "" || return 1
+    # json-verbose + jsonSchema is forbidden by PiAdapter.validate — the
+    # envelope returns the full turn stream verbatim, while schema mode
+    # validates the flat text. Combining them is meaningless.
+    local tmp=/tmp/_jv_reject_$$
+    local code
+    code=$(_curl_auth -m 10 -o "$tmp" -w "%{http_code}" -X POST "$API_URL/run" \
+        -H "Content-Type: application/json" \
+        -d '{"prompt":"x","outputFormat":"json-verbose","jsonSchema":{"type":"object"},"noContinue":true,"noTools":true}')
+    local body
+    body=$(cat "$tmp" 2>/dev/null); rm -f "$tmp"
+    assert_eq "$code" "422" "json-verbose + jsonSchema → 422" || return 1
+    assert_contains "$body" "json-verbose is incompatible with json_schema" \
+        "rejection message names the mutual exclusion"
+}
+
+test_api_run_invalid_format() {
+    _api_start "" || return 1
+    local tmp=/tmp/_bad_fmt_$$
+    local code
+    code=$(_curl_auth -m 10 -o "$tmp" -w "%{http_code}" -X POST "$API_URL/run" \
+        -H "Content-Type: application/json" \
+        -d '{"prompt":"x","outputFormat":"banana","noContinue":true,"noTools":true}')
+    local body
+    body=$(cat "$tmp" 2>/dev/null); rm -f "$tmp"
+    assert_eq "$code" "422" "outputFormat=banana → 422" || return 1
+    assert_contains "$body" "output_format='banana'" "rejection echoes the bad value"
 }
 
 test_api_auth() {
@@ -342,7 +440,10 @@ test_api_oai_models() {
     local body
     body=$(_curl_auth -m 5 "$API_URL/openai/v1/models")
     assert_contains "$body" "\"object\":\"list\"" "/openai/v1/models is a list" || return 1
-    assert_contains "$body" "\"id\":\"pi\"" "model list contains id=pi"
+    # /openai/v1/models reflects AICODEBOX_AVAILABLE_MODELS (set to
+    # $TEST_MODEL by _api_start). The base no longer falls back to the
+    # adapter name — "pi" is the adapter, not a model id.
+    assert_contains "$body" "\"id\":\"$TEST_MODEL\"" "model list contains id=$TEST_MODEL"
 }
 
 test_api_oai_chat() {
@@ -429,10 +530,37 @@ test_api_oai_stream() {
     local body
     body=$(_curl_auth -m 180 -N -X POST "$API_URL/openai/v1/chat/completions" \
         -H "Content-Type: application/json" \
-        -d '{"model":"pi","messages":[{"role":"user","content":"Reply with exactly one word: STREAMOK. Nothing else."}],"stream":true}')
+        -d '{"model":"pi","messages":[{"role":"user","content":"Count from 1 to 5 in words, one per line. Nothing else."}],"stream":true}')
     assert_contains "$body" "chat.completion.chunk" "oai stream emits chunks" || return 1
     assert_contains "$body" "[DONE]" "oai stream terminates with [DONE]" || return 1
-    assert_contains "$body" "STREAMOK" "oai stream content contains STREAMOK"
+
+    # Real per-delta streaming MUST produce multiple `chat.completion.chunk`
+    # frames carrying non-empty `content`. The previous fake-single-chunk
+    # implementation emitted exactly one content-bearing chunk; anything ≥2
+    # is structural proof that pi's `text_delta` events reached the wire.
+    local content_chunks
+    content_chunks=$(echo "$body" | grep -cE '"content": "[^"]+"')
+    if [ "$content_chunks" -lt 2 ]; then
+        log "  FAIL: streaming emitted only $content_chunks content chunks (need ≥2 for real streaming)"
+        log "  body: ${body:0:800}"
+        return 1
+    fi
+    log "  OK: streaming emitted $content_chunks content chunks (multi-delta)"
+
+    # Concatenate the delta payloads to reconstruct the full response —
+    # tokens like "Three" may be split across frames, so a contiguous
+    # match on the raw SSE body would be flaky.
+    local joined
+    joined=$(echo "$body" | jq -rR '
+        select(startswith("data: ") and (. | endswith("[DONE]") | not)) |
+        .[6:] | fromjson? | .choices[0].delta.content // empty
+    ' 2>/dev/null | tr -d '\n')
+    # Case-insensitive match — different providers (anthropic / z.ai / etc.)
+    # don't agree on capitalization of number words.
+    local lower
+    lower=$(echo "$joined" | tr '[:upper:]' '[:lower:]')
+    assert_contains "$lower" "one" "stream content includes 'one'" || return 1
+    assert_contains "$lower" "five" "stream content includes 'five'"
 }
 
 # 1x1 transparent PNG, base64-encoded — small enough to inline as a data: URL.
@@ -495,6 +623,9 @@ ALL_TESTS+=(
     test_api_healthz
     test_api_run_sync
     test_api_run_async
+    test_api_run_json_verbose
+    test_api_run_json_verbose_rejects_schema
+    test_api_run_invalid_format
     test_api_auth
     test_api_unknown_run
     test_api_busy

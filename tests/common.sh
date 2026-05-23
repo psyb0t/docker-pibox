@@ -5,7 +5,11 @@
 IMAGE_NAME="psyb0t/pibox"
 TEST_TAG="local"
 IMAGE="pibox:local"
-BASE_IMAGE="aicodebox-base:local"
+# Use the published aicodebox base — we no longer develop the two repos
+# in parallel, so the suite tests pibox on top of whatever the released
+# base ships. Override with PIBOX_BASE_IMAGE if you need to test against
+# a local fork of the base.
+BASE_IMAGE="${PIBOX_BASE_IMAGE:-psyb0t/aicodebox:latest}"
 CONTAINER_PREFIX="pibox-test"
 WORKDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 EXTRA_CONTAINERS=()
@@ -98,23 +102,40 @@ assert_exit_code() {
 # ── lifecycle ─────────────────────────────────────────────────────────────────
 
 setup() {
-    local base_dir="$WORKDIR/../docker-aicodebox"
-    if [ ! -d "$base_dir" ]; then
-        echo "❌ base repo not found at $base_dir — clone psyb0t/docker-aicodebox next to this repo" >&2
-        exit 1
+    # Base image: pulled fresh by default (so the suite always tests against
+    # the current released base). Skip with SKIP_BASE_PULL=1 when you've
+    # already got it locally and just want to iterate on pibox changes fast.
+    if [ "${SKIP_BASE_PULL:-0}" != "1" ]; then
+        echo "pulling base image ($BASE_IMAGE)..."
+        if ! docker pull "$BASE_IMAGE" >"$TEST_LOG_DIR/pull.log" 2>&1; then
+            echo "❌ base image pull failed; see $TEST_LOG_DIR/pull.log" >&2
+            tail -30 "$TEST_LOG_DIR/pull.log" >&2
+            exit 1
+        fi
+        echo "✅ base image present"
+    else
+        if ! docker image inspect "$BASE_IMAGE" >/dev/null 2>&1; then
+            echo "❌ SKIP_BASE_PULL=1 but $BASE_IMAGE not found locally" >&2
+            exit 1
+        fi
+        echo "✅ SKIP_BASE_PULL=1 — using existing $BASE_IMAGE"
     fi
-    echo "building aicodebox-base image ($BASE_IMAGE) from $base_dir..."
-    if ! docker build -t "$BASE_IMAGE" "$base_dir" \
-            >"$TEST_LOG_DIR/build.log" 2>&1; then
-        echo "❌ base image build failed; see $TEST_LOG_DIR/build.log" >&2
-        tail -50 "$TEST_LOG_DIR/build.log" >&2
-        exit 1
-    fi
-    echo "✅ base image built"
 
-    echo "building pibox image ($IMAGE)..."
-    if ! docker build -t "$IMAGE" "$WORKDIR" \
-            >>"$TEST_LOG_DIR/build.log" 2>&1; then
+    # pibox image: SKIP_BUILD=1 reuses an existing $IMAGE tag, otherwise
+    # always rebuild so test runs reflect current source.
+    if [ "${SKIP_BUILD:-0}" = "1" ]; then
+        if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
+            echo "❌ SKIP_BUILD=1 but $IMAGE not found" >&2
+            exit 1
+        fi
+        echo "✅ SKIP_BUILD=1 — using existing $IMAGE"
+        return 0
+    fi
+
+    echo "building pibox image ($IMAGE) on top of $BASE_IMAGE..."
+    if ! docker build --build-arg "BASE_IMAGE=$BASE_IMAGE" \
+            -t "$IMAGE" "$WORKDIR" \
+            >"$TEST_LOG_DIR/build.log" 2>&1; then
         echo "❌ pibox image build failed; see $TEST_LOG_DIR/build.log" >&2
         tail -50 "$TEST_LOG_DIR/build.log" >&2
         exit 1

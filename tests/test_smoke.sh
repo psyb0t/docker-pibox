@@ -64,6 +64,7 @@ test_jsonschema_pi() {
         -e "AICODEBOX_API_MODE=1" \
         -e "AICODEBOX_API_MODE_PORT=$port" \
         -e "AICODEBOX_API_MODE_TOKEN=$token" \
+        -e "AICODEBOX_AVAILABLE_MODELS=$TEST_MODEL" \
         -p "127.0.0.1:$port:$port" \
         "$IMAGE" >/dev/null
 
