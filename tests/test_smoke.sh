@@ -83,14 +83,13 @@ test_jsonschema_pi() {
         return 1
     fi
 
-    # outputFormat=json + jsonSchema means: base parses .text as JSON,
-    # validates against the schema, and retries up to 3 times if the model
-    # produces malformed output. Success surfaces the decoded object under
-    # .parsed (no .text in the response). v0.4.0 contract.
+    # Setting jsonSchema (with verbose unset) means: base parses .text as
+    # JSON, validates against the schema, and retries up to 3 times if the
+    # model produces malformed output. Success surfaces the decoded object
+    # under .json (no .text in the response). v0.5.0 contract.
     local payload='{
         "prompt": "Produce a JSON object where the word field is exactly the string HELLO.",
         "model": "'"$TEST_MODEL"'",
-        "outputFormat": "json",
         "extra_args": ["--provider", "anthropic"],
         "jsonSchema": {
             "type": "object",
@@ -112,14 +111,14 @@ test_jsonschema_pi() {
         return 1
     fi
 
-    if ! echo "$resp" | jq -e '.parsed.word' >/dev/null 2>&1; then
-        log "  FAIL: pi response missing .parsed.word"
+    if ! echo "$resp" | jq -e '.json.word' >/dev/null 2>&1; then
+        log "  FAIL: pi response missing .json.word"
         log "  body: ${resp:0:500}"
         return 1
     fi
 
     local word
-    word=$(echo "$resp" | jq -r '.parsed.word')
+    word=$(echo "$resp" | jq -r '.json.word')
     if [[ "${word^^}" != *"HELLO"* ]]; then
         log "  FAIL: pi .word=$word (expected HELLO)"
         return 1

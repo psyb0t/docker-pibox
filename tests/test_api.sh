@@ -127,15 +127,18 @@ test_api_run_async() {
     return 1
 }
 
-test_api_run_json_verbose() {
+test_api_run_verbose() {
     _api_start "" || return 1
+    # v0.5.0 contract: ``verbose=true`` swaps the lean default response
+    # ({runId, workspace, exitCode, text}) for the full one — adds the
+    # adapter's structured event log, sessionId, and usage alongside text.
+    # No more outputFormat enum; ``verbose`` is the only switch for the
+    # wire-shape decision.
     local body
     body=$(_curl_auth -m 120 -X POST "$API_URL/run" \
         -H "Content-Type: application/json" \
-        -d '{"prompt":"Reply with exactly one word: HELLO. Nothing else.","outputFormat":"json-verbose","noContinue":true,"noTools":true}')
+        -d '{"prompt":"Reply with exactly one word: HELLO. Nothing else.","verbose":true,"noContinue":true,"noTools":true}')
 
-    # New v0.4.0 contract: json-verbose surfaces structured events under
-    # `.events` — no `.text`, no `.parsed` (those belong to text/json modes).
     # The events array is whatever the adapter decoded from raw stdout via
     # parse_events(); for pi that's the full NDJSON event stream.
     local events_len
@@ -147,13 +150,16 @@ test_api_run_json_verbose() {
     fi
     log "  OK: .events array has $events_len entries"
 
-    # Text/parsed must NOT leak into json-verbose responses — the modes are
-    # mutually exclusive in the new contract.
-    local has_text has_parsed
-    has_text=$(echo "$body" | jq 'has("text")')
-    has_parsed=$(echo "$body" | jq 'has("parsed")')
-    assert_eq "$has_text" "false" "json-verbose response has no .text field" || return 1
-    assert_eq "$has_parsed" "false" "json-verbose response has no .parsed field" || return 1
+    # Unlike v0.4.0's json-verbose, verbose responses carry .text alongside
+    # the events — verbose is wire-format richness, not LLM output style.
+    local text_val has_json
+    text_val=$(echo "$body" | jq -r '.text // ""')
+    assert_contains "$text_val" "HELLO" "verbose response has .text with HELLO" || return 1
+
+    # No schema means no .json field — that only appears when jsonSchema
+    # is also set.
+    has_json=$(echo "$body" | jq 'has("json")')
+    assert_eq "$has_json" "false" "verbose-without-schema has no .json field" || return 1
 
     # pi's event stream MUST surface a session event with an id and at least
     # one assistant message_end carrying the marker — that's the structural
@@ -177,55 +183,23 @@ test_api_run_json_verbose() {
     ')
     assert_contains "$asst_text" "HELLO" "assistant message_end content contains HELLO" || return 1
 
-    # Top-level .sessionId / .usage stay populated from RunResult — the
-    # adapter still extracts them in parse_output even when json-verbose
-    # mode is selected. Useful for callers who want quick metadata without
-    # walking the event log themselves.
+    # Top-level .sessionId / .usage are surfaced only when verbose=true
+    # (the lean default drops them to keep the wire minimal).
     local has_session_id
     has_session_id=$(echo "$body" | jq -r '.sessionId | type=="string" and . != ""')
-    assert_eq "$has_session_id" "true" "top-level .sessionId surfaces from RunResult"
-}
-
-test_api_run_json_verbose_rejects_schema() {
-    _api_start "" || return 1
-    # json-verbose × jsonSchema is forbidden at the base layer (since
-    # aicodebox v0.4.0). Events are an unstructured event log; schema mode
-    # validates the flat text. The two solve different problems.
-    local tmp=/tmp/_jv_reject_$$
-    local code
-    code=$(_curl_auth -m 10 -o "$tmp" -w "%{http_code}" -X POST "$API_URL/run" \
-        -H "Content-Type: application/json" \
-        -d '{"prompt":"x","outputFormat":"json-verbose","jsonSchema":{"type":"object"},"noContinue":true,"noTools":true}')
-    local body
-    body=$(cat "$tmp" 2>/dev/null); rm -f "$tmp"
-    assert_eq "$code" "422" "json-verbose + jsonSchema → 422" || return 1
-    assert_contains "$body" "jsonSchema is incompatible with output_format=json-verbose" \
-        "rejection message names the mutual exclusion"
-}
-
-test_api_run_invalid_format() {
-    _api_start "" || return 1
-    local tmp=/tmp/_bad_fmt_$$
-    local code
-    code=$(_curl_auth -m 10 -o "$tmp" -w "%{http_code}" -X POST "$API_URL/run" \
-        -H "Content-Type: application/json" \
-        -d '{"prompt":"x","outputFormat":"banana","noContinue":true,"noTools":true}')
-    local body
-    body=$(cat "$tmp" 2>/dev/null); rm -f "$tmp"
-    assert_eq "$code" "422" "outputFormat=banana → 422" || return 1
-    assert_contains "$body" "output_format='banana'" "rejection echoes the bad value"
+    assert_eq "$has_session_id" "true" "verbose response surfaces .sessionId"
 }
 
 test_api_run_json_mode() {
     _api_start "" || return 1
-    # json mode (v0.4.0 contract): success returns .parsed (the decoded JSON
-    # object) and omits .text. Schema validation + up-to-3 self-correction
-    # retries are handled by the base layer; the adapter just bolts the
-    # schema onto the system prompt.
+    # v0.5.0 contract: setting ``jsonSchema`` (no verbose) yields a clean
+    # response with the decoded object under .json and no .text. Schema
+    # validation + up-to-3 self-correction retries happen at the base
+    # layer; the adapter just bolts the schema onto the system prompt.
     local body
     body=$(_curl_auth -m 180 -X POST "$API_URL/run" \
         -H "Content-Type: application/json" \
-        -d '{"prompt":"Produce a JSON object where the word field is exactly the string HELLO.","outputFormat":"json","jsonSchema":{"type":"object","properties":{"word":{"type":"string"}},"required":["word"]},"noContinue":true,"noTools":true}')
+        -d '{"prompt":"Produce a JSON object where the word field is exactly the string HELLO.","jsonSchema":{"type":"object","properties":{"word":{"type":"string"}},"required":["word"]},"noContinue":true,"noTools":true}')
 
     local exit_code
     exit_code=$(echo "$body" | jq -r '.exitCode')
@@ -235,14 +209,13 @@ test_api_run_json_mode() {
         return 1
     fi
 
-    # On success, .parsed is the decoded object and .text is absent.
-    local has_parsed has_text
-    has_parsed=$(echo "$body" | jq 'has("parsed")')
+    # On success, .json is the decoded object and .text is absent.
+    local has_json has_text
+    has_json=$(echo "$body" | jq 'has("json")')
     has_text=$(echo "$body" | jq 'has("text")')
-    assert_eq "$has_parsed" "true" "json-mode success populates .parsed" || return 1
+    assert_eq "$has_json" "true" "json-mode success populates .json" || return 1
     # If the model needed retries, .text comes back alongside .parseError —
-    # but on a clean parse, .text must NOT be in the response (the v0.4.0
-    # contract forbids it).
+    # but on a clean parse, .text must NOT be in the response.
     local parse_error
     parse_error=$(echo "$body" | jq -r '.parseError // ""')
     if [ -z "$parse_error" ] && [ "$has_text" = "true" ]; then
@@ -252,20 +225,61 @@ test_api_run_json_mode() {
     fi
 
     local word
-    word=$(echo "$body" | jq -r '.parsed.word')
+    word=$(echo "$body" | jq -r '.json.word')
     if [[ "${word^^}" != *"HELLO"* ]]; then
-        log "  FAIL: parsed.word=$word (expected HELLO)"
+        log "  FAIL: json.word=$word (expected HELLO)"
         return 1
     fi
-    log "  OK: json mode returned .parsed.word=$word"
+    log "  OK: json mode returned .json.word=$word"
+}
+
+test_api_run_json_with_verbose() {
+    _api_start "" || return 1
+    # v0.5.0 contract: ``jsonSchema`` + ``verbose=true`` compose freely —
+    # the response carries BOTH the schema-validated object under .json AND
+    # the adapter's event log under .events. v0.4.0 forbade this combination
+    # at the base; v0.5.0 lets callers debug schema failures by reading the
+    # turn-level event stream alongside the parsed object.
+    local body
+    body=$(_curl_auth -m 180 -X POST "$API_URL/run" \
+        -H "Content-Type: application/json" \
+        -d '{"prompt":"Produce a JSON object where the word field is exactly the string HELLO.","jsonSchema":{"type":"object","properties":{"word":{"type":"string"}},"required":["word"]},"verbose":true,"noContinue":true,"noTools":true}')
+
+    local exit_code
+    exit_code=$(echo "$body" | jq -r '.exitCode')
+    if [ "$exit_code" != "0" ]; then
+        log "  FAIL: combo mode exit_code=$exit_code"
+        log "  body: ${body:0:500}"
+        return 1
+    fi
+
+    # Both .json (decoded object) and .events (event log) must be present.
+    local has_json has_events events_len
+    has_json=$(echo "$body" | jq 'has("json")')
+    assert_eq "$has_json" "true" "combo response has .json" || return 1
+    has_events=$(echo "$body" | jq 'has("events")')
+    assert_eq "$has_events" "true" "combo response has .events" || return 1
+    events_len=$(echo "$body" | jq -r '.events | length')
+    if ! [[ "$events_len" =~ ^[0-9]+$ ]] || [ "$events_len" -lt 3 ]; then
+        log "  FAIL: combo events too short (len=$events_len)"
+        return 1
+    fi
+
+    local word
+    word=$(echo "$body" | jq -r '.json.word')
+    if [[ "${word^^}" != *"HELLO"* ]]; then
+        log "  FAIL: combo .json.word=$word (expected HELLO)"
+        return 1
+    fi
+    log "  OK: combo returned .json.word=$word with $events_len events"
 }
 
 test_api_run_include_raw() {
     _api_start "" || return 1
-    # includeRaw is opt-in in the v0.4.0 contract — default responses do NOT
-    # carry raw stdout/stderr (they were always-on before, wasted bytes for
-    # json-verbose adapters where stdout balloons). Confirm both directions:
-    # default omits them, includeRaw=true surfaces them.
+    # includeRaw is opt-in (v0.4.0+). Default responses do NOT carry raw
+    # stdout/stderr — the adapter's NDJSON stream can balloon to megabytes
+    # in verbose mode and most callers don't need it. Confirm both
+    # directions: default omits them, includeRaw=true surfaces them.
     local body_default body_raw
     body_default=$(_curl_auth -m 120 -X POST "$API_URL/run" \
         -H "Content-Type: application/json" \
@@ -693,10 +707,9 @@ ALL_TESTS+=(
     test_api_healthz
     test_api_run_sync
     test_api_run_async
-    test_api_run_json_verbose
-    test_api_run_json_verbose_rejects_schema
-    test_api_run_invalid_format
+    test_api_run_verbose
     test_api_run_json_mode
+    test_api_run_json_with_verbose
     test_api_run_include_raw
     test_api_auth
     test_api_unknown_run
