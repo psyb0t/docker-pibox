@@ -134,71 +134,63 @@ test_api_run_json_verbose() {
         -H "Content-Type: application/json" \
         -d '{"prompt":"Reply with exactly one word: HELLO. Nothing else.","outputFormat":"json-verbose","noContinue":true,"noTools":true}')
 
-    # Flat text contract still honoured. Check the top-level .text field
-    # specifically — not the full body, which would trivially match the
-    # prompt echo inside the user turn.
-    local flat_text
-    flat_text=$(echo "$body" | jq -r '.text')
-    assert_contains "$flat_text" "HELLO" "json-verbose still populates flat .text with HELLO" || return 1
-
-    # Envelope lives under .parsed — surface it via jq once so subsequent
-    # assertions don't each respawn a parser.
-    local parsed
-    parsed=$(echo "$body" | jq -c '.parsed' 2>/dev/null)
-    if [ -z "$parsed" ] || [ "$parsed" = "null" ]; then
-        log "  FAIL: json-verbose did not populate .parsed"
+    # New v0.4.0 contract: json-verbose surfaces structured events under
+    # `.events` — no `.text`, no `.parsed` (those belong to text/json modes).
+    # The events array is whatever the adapter decoded from raw stdout via
+    # parse_events(); for pi that's the full NDJSON event stream.
+    local events_len
+    events_len=$(echo "$body" | jq -r '.events | length' 2>/dev/null)
+    if ! [[ "$events_len" =~ ^[0-9]+$ ]] || [ "$events_len" -lt 5 ]; then
+        log "  FAIL: events array missing or too short (len=$events_len)"
         log "  body: ${body:0:500}"
         return 1
     fi
+    log "  OK: .events array has $events_len entries"
 
-    # Required envelope keys: sessionId, model, stopReason, turns, usage, text.
-    local missing
-    missing=$(echo "$parsed" | jq -r '
-        ["sessionId","model","stopReason","turns","usage","text"]
-        - (keys_unsorted) | join(",")
+    # Text/parsed must NOT leak into json-verbose responses — the modes are
+    # mutually exclusive in the new contract.
+    local has_text has_parsed
+    has_text=$(echo "$body" | jq 'has("text")')
+    has_parsed=$(echo "$body" | jq 'has("parsed")')
+    assert_eq "$has_text" "false" "json-verbose response has no .text field" || return 1
+    assert_eq "$has_parsed" "false" "json-verbose response has no .parsed field" || return 1
+
+    # pi's event stream MUST surface a session event with an id and at least
+    # one assistant message_end carrying the marker — that's the structural
+    # proof parse_events is decoding the NDJSON correctly.
+    local has_session
+    has_session=$(echo "$body" | jq -r '
+        any(.events[]; .type=="session" and (.id | type=="string") and .id != "")
     ')
-    if [ -n "$missing" ]; then
-        log "  FAIL: envelope missing keys: $missing"
-        log "  parsed: ${parsed:0:500}"
-        return 1
-    fi
-    log "  OK: envelope has sessionId/model/stopReason/turns/usage/text"
+    assert_eq "$has_session" "true" "events contain a session event with id" || return 1
 
-    # Turns must contain at least the user prompt + an assistant reply.
-    local turn_count
-    turn_count=$(echo "$parsed" | jq -r '.turns | length')
-    if [ "$turn_count" -lt 2 ]; then
-        log "  FAIL: turns count=$turn_count (expected ≥2)"
-        return 1
-    fi
-    log "  OK: turns array has $turn_count entries"
-
-    # Assistant turn must carry a text block whose content contains the
-    # marker — this is the structural proof that block-level content is
-    # being captured, not just the flat `text` mirror.
     local asst_text
-    asst_text=$(echo "$parsed" | jq -r '
-        [.turns[] | select(.role=="assistant") | .content[] |
-         select(.type=="text") | .text] | join(" ")
+    asst_text=$(echo "$body" | jq -r '
+        [.events[]
+            | select(.type=="message_end" and .message.role=="assistant")
+            | .message.content
+            | if type=="string" then .
+              elif type=="array" then
+                  [.[] | select(.type=="text") | .text] | join(" ")
+              else "" end
+        ] | join(" ")
     ')
-    assert_contains "$asst_text" "HELLO" "assistant turn .content[].text contains HELLO" || return 1
+    assert_contains "$asst_text" "HELLO" "assistant message_end content contains HELLO" || return 1
 
-    # Usage carries BOTH naming conventions (pi-native input/output AND
-    # OAI-style input_tokens/output_tokens — the adapter aliases the pair
-    # so /openai/v1/chat/completions returns real counts).
-    local has_aliases
-    has_aliases=$(echo "$parsed" | jq -r '
-        (.usage|has("input")) and (.usage|has("output")) and
-        (.usage|has("input_tokens")) and (.usage|has("output_tokens"))
-    ')
-    assert_eq "$has_aliases" "true" "usage has both input/output AND input_tokens/output_tokens"
+    # Top-level .sessionId / .usage stay populated from RunResult — the
+    # adapter still extracts them in parse_output even when json-verbose
+    # mode is selected. Useful for callers who want quick metadata without
+    # walking the event log themselves.
+    local has_session_id
+    has_session_id=$(echo "$body" | jq -r '.sessionId | type=="string" and . != ""')
+    assert_eq "$has_session_id" "true" "top-level .sessionId surfaces from RunResult"
 }
 
 test_api_run_json_verbose_rejects_schema() {
     _api_start "" || return 1
-    # json-verbose + jsonSchema is forbidden by PiAdapter.validate — the
-    # envelope returns the full turn stream verbatim, while schema mode
-    # validates the flat text. Combining them is meaningless.
+    # json-verbose × jsonSchema is forbidden at the base layer (since
+    # aicodebox v0.4.0). Events are an unstructured event log; schema mode
+    # validates the flat text. The two solve different problems.
     local tmp=/tmp/_jv_reject_$$
     local code
     code=$(_curl_auth -m 10 -o "$tmp" -w "%{http_code}" -X POST "$API_URL/run" \
@@ -207,7 +199,7 @@ test_api_run_json_verbose_rejects_schema() {
     local body
     body=$(cat "$tmp" 2>/dev/null); rm -f "$tmp"
     assert_eq "$code" "422" "json-verbose + jsonSchema → 422" || return 1
-    assert_contains "$body" "json-verbose is incompatible with json_schema" \
+    assert_contains "$body" "jsonSchema is incompatible with output_format=json-verbose" \
         "rejection message names the mutual exclusion"
 }
 
@@ -222,6 +214,84 @@ test_api_run_invalid_format() {
     body=$(cat "$tmp" 2>/dev/null); rm -f "$tmp"
     assert_eq "$code" "422" "outputFormat=banana → 422" || return 1
     assert_contains "$body" "output_format='banana'" "rejection echoes the bad value"
+}
+
+test_api_run_json_mode() {
+    _api_start "" || return 1
+    # json mode (v0.4.0 contract): success returns .parsed (the decoded JSON
+    # object) and omits .text. Schema validation + up-to-3 self-correction
+    # retries are handled by the base layer; the adapter just bolts the
+    # schema onto the system prompt.
+    local body
+    body=$(_curl_auth -m 180 -X POST "$API_URL/run" \
+        -H "Content-Type: application/json" \
+        -d '{"prompt":"Produce a JSON object where the word field is exactly the string HELLO.","outputFormat":"json","jsonSchema":{"type":"object","properties":{"word":{"type":"string"}},"required":["word"]},"noContinue":true,"noTools":true}')
+
+    local exit_code
+    exit_code=$(echo "$body" | jq -r '.exitCode')
+    if [ "$exit_code" != "0" ]; then
+        log "  FAIL: json mode exit_code=$exit_code"
+        log "  body: ${body:0:500}"
+        return 1
+    fi
+
+    # On success, .parsed is the decoded object and .text is absent.
+    local has_parsed has_text
+    has_parsed=$(echo "$body" | jq 'has("parsed")')
+    has_text=$(echo "$body" | jq 'has("text")')
+    assert_eq "$has_parsed" "true" "json-mode success populates .parsed" || return 1
+    # If the model needed retries, .text comes back alongside .parseError —
+    # but on a clean parse, .text must NOT be in the response (the v0.4.0
+    # contract forbids it).
+    local parse_error
+    parse_error=$(echo "$body" | jq -r '.parseError // ""')
+    if [ -z "$parse_error" ] && [ "$has_text" = "true" ]; then
+        log "  FAIL: json-mode success leaked .text into response (should be omitted)"
+        log "  body: ${body:0:500}"
+        return 1
+    fi
+
+    local word
+    word=$(echo "$body" | jq -r '.parsed.word')
+    if [[ "${word^^}" != *"HELLO"* ]]; then
+        log "  FAIL: parsed.word=$word (expected HELLO)"
+        return 1
+    fi
+    log "  OK: json mode returned .parsed.word=$word"
+}
+
+test_api_run_include_raw() {
+    _api_start "" || return 1
+    # includeRaw is opt-in in the v0.4.0 contract — default responses do NOT
+    # carry raw stdout/stderr (they were always-on before, wasted bytes for
+    # json-verbose adapters where stdout balloons). Confirm both directions:
+    # default omits them, includeRaw=true surfaces them.
+    local body_default body_raw
+    body_default=$(_curl_auth -m 120 -X POST "$API_URL/run" \
+        -H "Content-Type: application/json" \
+        -d '{"prompt":"Reply with exactly one word: HELLO. Nothing else.","noContinue":true,"noTools":true}')
+    local has_stdout_default
+    has_stdout_default=$(echo "$body_default" | jq 'has("stdout")')
+    assert_eq "$has_stdout_default" "false" "default response omits .stdout" || return 1
+
+    body_raw=$(_curl_auth -m 120 -X POST "$API_URL/run" \
+        -H "Content-Type: application/json" \
+        -d '{"prompt":"Reply with exactly one word: HELLO. Nothing else.","includeRaw":true,"noContinue":true,"noTools":true}')
+    local has_stdout_raw has_stderr_raw
+    has_stdout_raw=$(echo "$body_raw" | jq 'has("stdout")')
+    has_stderr_raw=$(echo "$body_raw" | jq 'has("stderr")')
+    assert_eq "$has_stdout_raw" "true" "includeRaw=true surfaces .stdout" || return 1
+    assert_eq "$has_stderr_raw" "true" "includeRaw=true surfaces .stderr" || return 1
+
+    # The raw stdout for pi is the NDJSON event stream — contains at least
+    # one parseable session event.
+    local stdout_has_session
+    stdout_has_session=$(echo "$body_raw" | jq -r '.stdout' | grep -c '"type":"session"' || true)
+    if [ "${stdout_has_session:-0}" -lt 1 ]; then
+        log "  FAIL: raw stdout missing pi session events"
+        return 1
+    fi
+    log "  OK: raw stdout carries pi NDJSON event stream"
 }
 
 test_api_auth() {
@@ -626,6 +696,8 @@ ALL_TESTS+=(
     test_api_run_json_verbose
     test_api_run_json_verbose_rejects_schema
     test_api_run_invalid_format
+    test_api_run_json_mode
+    test_api_run_include_raw
     test_api_auth
     test_api_unknown_run
     test_api_busy

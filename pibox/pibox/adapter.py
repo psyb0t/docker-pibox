@@ -25,30 +25,9 @@ from aicodebox.adapters.base import (
     RunRequest,
     RunResult,
     StreamEvent,
-    parse_json_response,
 )
 
 VALID_THINKING = {"off", "minimal", "low", "medium", "high", "xhigh"}
-VALID_OUTPUT_FORMATS = {"text", "json", "json-verbose"}
-
-
-def _normalize_content_blocks(content: Any) -> list[dict[str, Any]]:
-    """Coerce a `message.content` field into a uniform list-of-blocks shape.
-
-    pi (like every other Anthropic-style agent) sometimes emits content as
-    a bare string (one-shot text) and sometimes as a list of typed blocks
-    (text / thinking / tool_use / tool_result). The verbose envelope needs
-    a single shape, so wrap strings and drop anything we can't recognize.
-    """
-    if isinstance(content, str):
-        return [{"type": "text", "text": content}] if content else []
-    if not isinstance(content, list):
-        return []
-    out: list[dict[str, Any]] = []
-    for blk in content:
-        if isinstance(blk, dict) and isinstance(blk.get("type"), str):
-            out.append(blk)
-    return out
 
 
 class PiAdapter(AgentAdapter):
@@ -64,20 +43,9 @@ class PiAdapter(AgentAdapter):
     ]
 
     def validate(self, req: RunRequest) -> None:
-        # NOT calling super().validate(req): the base only knows about
-        # output_format in {"text", "json"} and would reject "json-verbose".
-        # The pibox adapter owns this check.
-        if req.output_format not in VALID_OUTPUT_FORMATS:
-            raise ValueError(
-                f"output_format={req.output_format!r} invalid; "
-                f"choose one of {sorted(VALID_OUTPUT_FORMATS)}"
-            )
-        if req.output_format == "json-verbose" and req.json_schema:
-            raise ValueError(
-                "output_format=json-verbose is incompatible with json_schema; "
-                "json-verbose returns the full turn envelope, schema mode "
-                "validates the flat text — pick one"
-            )
+        # Base owns output_format + json-verbose×json_schema mutex (since
+        # aicodebox v0.4.0). Adapter only adds pi-specific constraints.
+        super().validate(req)
         if req.thinking and req.thinking not in VALID_THINKING:
             raise ValueError(
                 f"thinking={req.thinking!r} invalid; "
@@ -92,8 +60,8 @@ class PiAdapter(AgentAdapter):
         # session-event stream (session id, per-turn usage + cost, assistant
         # text). pi's `--mode text` emits only the assistant text with zero
         # side-channel for metadata — useless for an API. The caller's
-        # `output_format` only affects post-processing (schema validation),
-        # not pi's invocation.
+        # `output_format` only affects post-processing (text extraction,
+        # event parsing) — pi runs the same way regardless.
         argv += ["--mode", "json"]
 
         if req.model:
@@ -106,7 +74,9 @@ class PiAdapter(AgentAdapter):
             argv += ["--append-system-prompt", req.append_system_prompt]
         if req.json_schema:
             # pi has no native schema enforcement — bolt the schema onto the
-            # system prompt and post-validate.
+            # system prompt. Parse + retry happens at the base layer
+            # (server._run_json_with_retry); the adapter only needs to make
+            # sure the model is steered toward producing JSON.
             schema_text = (
                 "You MUST respond with a single JSON document conforming to "
                 "this JSON Schema. No prose, no fences, just JSON.\n\n"
@@ -131,16 +101,16 @@ class PiAdapter(AgentAdapter):
 
         # pi's built-in `zai` provider auto-claims `glm-*` model names, which
         # bypasses the ANTHROPIC_BASE_URL override seeded into models.json by
-        # init.d/20-anthropic-baseurl.sh. When the user has set an Anthropic-
-        # compatible base URL, force the request through the `anthropic`
-        # provider unless they explicitly chose one in extra_args.
+        # scripts/setup-anthropic-baseurl.sh. When the user has set an
+        # Anthropic-compatible base URL, force the request through the
+        # `anthropic` provider unless they explicitly chose one in extra_args.
         if os.environ.get("ANTHROPIC_BASE_URL") and "--provider" not in argv:
             argv += ["--provider", "anthropic"]
 
         # Prompt is piped to stdin by aicodebox.shared.runner — do NOT also
         # append it to argv. pi's `-p` mode merges stdin + positional with no
         # separator, so dual-channel = the prompt appears twice in the user
-        # message and contaminates text / parseError downstream.
+        # message and contaminates downstream text.
         return argv
 
     def translate_auth(self, env: dict[str, str]) -> dict[str, str]:
@@ -150,10 +120,103 @@ class PiAdapter(AgentAdapter):
         return {}
 
     def parse_output(self, stdout: str, req: RunRequest) -> RunResult:
-        # pi is always invoked in `--mode json` (see build_argv); a single
-        # parser handles both text and json output_formats — schema-bolt
-        # branching happens inside _parse_json_stream based on req.json_schema.
-        return self._parse_json_stream(stdout, req)
+        """Extract the canonical assistant text + session id + usage from
+        pi's NDJSON event stream.
+
+        Per the v0.4.0 base contract, `parse_output` populates only the
+        fields the modes actually consume off RunResult — text, session_id,
+        usage. The structured event log is exposed separately via
+        ``parse_events`` when ``output_format=json-verbose``. Schema parsing
+        + retry orchestration lives at the base layer; the adapter just
+        needs to deliver the model's raw text in ``result.text``.
+        """
+        del req
+        session_id = ""
+        text_parts: list[str] = []
+        usage: dict[str, Any] | None = None
+
+        for line in stdout.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                evt = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+
+            etype = evt.get("type")
+            if etype == "session" and not session_id:
+                sid = evt.get("id")
+                if isinstance(sid, str):
+                    session_id = sid
+                continue
+            if etype == "message_end":
+                msg = evt.get("message") or {}
+                if not isinstance(msg, dict) or msg.get("role") != "assistant":
+                    continue
+                content = msg.get("content")
+                if isinstance(content, str):
+                    if content:
+                        text_parts.append(content)
+                elif isinstance(content, list):
+                    for blk in content:
+                        if not isinstance(blk, dict):
+                            continue
+                        if blk.get("type") == "text":
+                            t = blk.get("text")
+                            if isinstance(t, str):
+                                text_parts.append(t)
+                u = msg.get("usage")
+                if isinstance(u, dict):
+                    usage = dict(u)
+                continue
+            if etype == "turn_end":
+                u = evt.get("usage")
+                if isinstance(u, dict):
+                    usage = dict(u)
+
+        text = "\n".join(p for p in text_parts if p).strip()
+        # pi emits `input` / `output` token counts; the OAI compat layer
+        # reads `input_tokens` / `output_tokens`. Carry both naming
+        # conventions so /v1/chat/completions returns real numbers.
+        if isinstance(usage, dict):
+            if "input" in usage:
+                usage.setdefault("input_tokens", usage["input"])
+            if "output" in usage:
+                usage.setdefault("output_tokens", usage["output"])
+
+        return RunResult(
+            text=text,
+            raw_stdout=stdout,
+            raw_stderr="",
+            exit_code=0,
+            session_id=session_id,
+            usage=usage,
+        )
+
+    def parse_events(
+        self, stdout: str, req: RunRequest,
+    ) -> list[dict[str, Any]]:
+        """JSON-decode every line of pi's `--mode json` event stream.
+
+        Returned verbatim to /run callers as the ``events`` field when
+        ``output_format=json-verbose``. Lines that fail to decode or aren't
+        objects are dropped silently — events is best-effort; the raw bytes
+        are reachable via ``includeRaw: true`` if a caller needs them.
+        """
+        del req
+        events: list[dict[str, Any]] = []
+        for line in stdout.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                evt = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(evt, dict):
+                events.append(evt)
+        return events
 
     def parse_stream_event(
         self, line: str, req: RunRequest,
@@ -166,8 +229,7 @@ class PiAdapter(AgentAdapter):
         ``text_start``/``text_delta``/``text_end`` for visible assistant
         text, and ``thinking_*`` for the model's internal reasoning. Only
         text deltas reach the wire — thinking deltas are skipped so they
-        don't contaminate the OAI ``content`` stream (clients streaming
-        chat completions never want to see chain-of-thought).
+        don't contaminate the OAI ``content`` stream.
 
         Returning ``None`` skips lines that carry no useful event
         (``agent_start``, message echoes, queue updates, tool-use deltas,
@@ -216,8 +278,6 @@ class PiAdapter(AgentAdapter):
             return None
 
         if etype == "agent_end":
-            # pi's terminal event. Surface a stop reason if any assistant
-            # message carries one; default to "stop".
             reason = "stop"
             msgs = evt.get("messages")
             if isinstance(msgs, list):
@@ -230,117 +290,6 @@ class PiAdapter(AgentAdapter):
             return StreamEvent(type="stop", data={"reason": reason})
 
         return None
-
-    def _parse_json_stream(self, stdout: str, req: RunRequest) -> RunResult:
-        session_id = ""
-        text_parts: list[str] = []
-        usage: dict[str, Any] | None = None
-        turns: list[dict[str, Any]] = []
-        model = ""
-        stop_reason = ""
-        cost: dict[str, Any] | None = None
-
-        for line in stdout.splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                evt = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-
-            etype = evt.get("type")
-            if etype == "session" and not session_id:
-                session_id = str(evt.get("id") or "")
-                # Some session events carry the resolved model name.
-                m = evt.get("model")
-                if isinstance(m, str) and m:
-                    model = m
-
-            elif etype == "message_end":
-                msg = evt.get("message") or {}
-                role = msg.get("role")
-                content = msg.get("content")
-                blocks = _normalize_content_blocks(content)
-
-                # Verbose envelope captures EVERY message — user prompt,
-                # assistant text+thinking+tool_use, tool_result echoes.
-                if role and blocks:
-                    turns.append({"role": role, "content": blocks})
-
-                # Flat `text` field stays assistant-only — that is the
-                # contract the OAI compat layer + json+schema mode rely on.
-                if role == "assistant":
-                    for blk in blocks:
-                        if blk.get("type") == "text":
-                            t = blk.get("text")
-                            if isinstance(t, str):
-                                text_parts.append(t)
-                    u = msg.get("usage")
-                    if isinstance(u, dict):
-                        usage = dict(u)
-                    sr = msg.get("stop_reason") or msg.get("stopReason")
-                    if isinstance(sr, str) and sr:
-                        stop_reason = sr
-                    m = msg.get("model")
-                    if isinstance(m, str) and m:
-                        model = m
-
-            elif etype == "turn_end":
-                u = evt.get("usage")
-                if isinstance(u, dict):
-                    usage = dict(u)
-                c = evt.get("cost")
-                if isinstance(c, dict):
-                    cost = c
-                sr = evt.get("stop_reason") or evt.get("stopReason")
-                if isinstance(sr, str) and sr:
-                    stop_reason = sr
-                m = evt.get("model")
-                if isinstance(m, str) and m:
-                    model = m
-
-        text = "\n".join(p for p in text_parts if p).strip()
-        # pi emits `input` / `output` token counts; the base OAI compat layer
-        # (aicodebox/modes/api/oai.py) reads `input_tokens` / `output_tokens`.
-        # Add both naming conventions so /openai/v1/chat/completions returns
-        # real numbers instead of zeros.
-        if isinstance(usage, dict):
-            if "input" in usage:
-                usage.setdefault("input_tokens", usage["input"])
-            if "output" in usage:
-                usage.setdefault("output_tokens", usage["output"])
-
-        result = RunResult(
-            text=text,
-            raw_stdout=stdout,
-            raw_stderr="",
-            exit_code=0,
-            session_id=session_id,
-            usage=usage,
-        )
-
-        if req.output_format == "json-verbose":
-            # Full envelope goes into `parsed` so the API layer surfaces it
-            # under the canonical structured-output field. Schema validation
-            # is intentionally forbidden in this mode (see validate()).
-            envelope: dict[str, Any] = {
-                "sessionId": session_id,
-                "model": model,
-                "stopReason": stop_reason,
-                "turns": turns,
-                "usage": usage,
-                "text": text,
-            }
-            if cost is not None:
-                envelope["cost"] = cost
-            result.parsed = envelope
-        elif req.json_schema:
-            value, err = parse_json_response(text, req.json_schema)
-            result.parsed = value
-            result.parse_error = err
-
-        return result
 
     def interactive_argv(self, workspace: str) -> list[str]:
         del workspace
