@@ -502,6 +502,75 @@ test_api_oai_reject_tools() {
     assert_eq "$code" "400" "oai response_format=json_object → 400"
 }
 
+test_api_oai_header_json_schema() {
+    _api_start "" || return 1
+    # aicodebox v0.7.0 exposed x-aicodebox-json-schema on the OAI route.
+    # Setting it flips the underlying adapter run to json-verbose mode so
+    # the assistant's final turn is schema-validated; the OAI response
+    # body still carries that text verbatim as message.content. The model
+    # should produce a JSON string that parses + matches the schema.
+    local body content
+    body=$(_curl_auth -m 180 -X POST "$API_URL/openai/v1/chat/completions" \
+        -H "Content-Type: application/json" \
+        -H 'x-aicodebox-json-schema: {"type":"object","properties":{"word":{"type":"string"}},"required":["word"]}' \
+        -d '{"model":"pi","messages":[{"role":"user","content":"Produce a JSON object where the word field is exactly the string HELLO."}]}')
+    assert_contains "$body" "\"object\":\"chat.completion\"" "oai schema-header response shape" || return 1
+
+    content=$(echo "$body" | jq -r '.choices[0].message.content')
+    if [ -z "$content" ] || [ "$content" = "null" ]; then
+        log "  FAIL: empty content"
+        log "  body: ${body:0:500}"
+        return 1
+    fi
+    # Content must be a JSON object that parses and carries .word=HELLO.
+    local word
+    word=$(echo "$content" | jq -r '.word' 2>/dev/null)
+    if [[ "${word^^}" != *"HELLO"* ]]; then
+        log "  FAIL: schema-header content not schema-conforming: $content"
+        return 1
+    fi
+    log "  OK: schema-header produced .word=$word in OAI content"
+}
+
+test_api_oai_header_json_schema_invalid() {
+    _api_start "" || return 1
+    # Malformed JSON in the header must surface as 400 with the header
+    # name in the detail (proves the v0.7.0 _parse_dict_header path is
+    # wired). Anything else (200, 422, 500) means the header isn't being
+    # validated or is being silently dropped.
+    local tmp=/tmp/_bad_schema_$$
+    local code body
+    code=$(_curl_auth -m 10 -o "$tmp" -w "%{http_code}" -X POST "$API_URL/openai/v1/chat/completions" \
+        -H "Content-Type: application/json" \
+        -H 'x-aicodebox-json-schema: {not valid json}' \
+        -d '{"model":"pi","messages":[{"role":"user","content":"hi"}]}')
+    body=$(cat "$tmp" 2>/dev/null); rm -f "$tmp"
+    assert_eq "$code" "400" "malformed schema header → 400" || return 1
+    assert_contains "$body" "x-aicodebox-json-schema" "rejection names the header"
+}
+
+test_api_oai_header_extra_args() {
+    _api_start "" || return 1
+    # x-aicodebox-extra-args accepts either a JSON array or a comma-
+    # separated string. Both must round-trip into the adapter's argv
+    # builder. Use "--provider anthropic" since pi already understands it
+    # and it's safe (pibox's build_argv auto-appends the same when
+    # ANTHROPIC_BASE_URL is set, so duplicating it has no behavioral
+    # effect — what we care about is the parse path not 400ing).
+    local code_csv code_json
+    code_csv=$(_curl_auth -m 120 -o /dev/null -w "%{http_code}" -X POST "$API_URL/openai/v1/chat/completions" \
+        -H "Content-Type: application/json" \
+        -H 'x-aicodebox-extra-args: --provider,anthropic' \
+        -d '{"model":"pi","messages":[{"role":"user","content":"Reply with one word: HELLO."}]}')
+    assert_eq "$code_csv" "200" "extra-args CSV header accepted → 200" || return 1
+
+    code_json=$(_curl_auth -m 120 -o /dev/null -w "%{http_code}" -X POST "$API_URL/openai/v1/chat/completions" \
+        -H "Content-Type: application/json" \
+        -H 'x-aicodebox-extra-args: ["--provider","anthropic"]' \
+        -d '{"model":"pi","messages":[{"role":"user","content":"Reply with one word: HELLO."}]}')
+    assert_eq "$code_json" "200" "extra-args JSON-array header accepted → 200"
+}
+
 test_api_status() {
     _api_start "" || return 1
     local body
@@ -673,6 +742,9 @@ ALL_TESTS+=(
     test_api_oai_models
     test_api_oai_chat
     test_api_oai_reject_tools
+    test_api_oai_header_json_schema
+    test_api_oai_header_json_schema_invalid
+    test_api_oai_header_extra_args
     test_api_mcp_handshake
     test_api_mcp_auth
     test_api_status
