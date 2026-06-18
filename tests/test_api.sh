@@ -192,17 +192,21 @@ test_api_run_json_mode() {
     fi
 
     # Schema mode emits the whole diagnostic surface — no missing fields.
-    local has_json has_text has_events has_session_id has_usage
+    local has_json has_text has_events has_session_id has_usage has_attempts
     has_json=$(echo "$body" | jq 'has("json")')
     has_text=$(echo "$body" | jq 'has("text")')
     has_events=$(echo "$body" | jq 'has("events")')
     has_session_id=$(echo "$body" | jq 'has("sessionId")')
     has_usage=$(echo "$body" | jq 'has("usage")')
+    has_attempts=$(echo "$body" | jq 'has("attempts")')
     assert_eq "$has_json" "true" "schema mode populates .json" || return 1
     assert_eq "$has_text" "true" "schema mode also surfaces .text alongside .json" || return 1
     assert_eq "$has_events" "true" "schema mode surfaces .events" || return 1
     assert_eq "$has_session_id" "true" "schema mode surfaces .sessionId" || return 1
     assert_eq "$has_usage" "true" "schema mode surfaces .usage" || return 1
+    # aicodebox v0.8.1 added .attempts — per-attempt breakdown. Always present
+    # in schema mode (at least one entry for the initial run).
+    assert_eq "$has_attempts" "true" "schema mode surfaces .attempts (v0.8.1+)" || return 1
 
     local events_len
     events_len=$(echo "$body" | jq -r '.events | length')
@@ -212,13 +216,29 @@ test_api_run_json_mode() {
         return 1
     fi
 
+    # .attempts must be a non-empty array. Each entry carries the v0.8.1
+    # shape: {index, usage, exitCode, parseError}. On a clean parse the
+    # first (and only) entry has index=0, exitCode=0, parseError=null.
+    local attempts_shape attempts_len
+    attempts_len=$(echo "$body" | jq -r '.attempts | length')
+    if ! [[ "$attempts_len" =~ ^[0-9]+$ ]] || [ "$attempts_len" -lt 1 ]; then
+        log "  FAIL: .attempts empty or non-array (len=$attempts_len)"
+        log "  body: ${body:0:500}"
+        return 1
+    fi
+    attempts_shape=$(echo "$body" | jq -r '
+        .attempts[0]
+        | (has("index") and has("exitCode") and has("parseError") and has("usage"))
+    ')
+    assert_eq "$attempts_shape" "true" "attempts[0] has v0.8.1 shape" || return 1
+
     local word
     word=$(echo "$body" | jq -r '.json.word')
     if [[ "${word^^}" != *"HELLO"* ]]; then
         log "  FAIL: .json.word=$word (expected HELLO)"
         return 1
     fi
-    log "  OK: schema mode returned .json.word=$word with $events_len events"
+    log "  OK: schema mode returned .json.word=$word with $events_len events, $attempts_len attempts"
 }
 
 test_api_run_include_raw() {
@@ -504,11 +524,11 @@ test_api_oai_reject_tools() {
 
 test_api_oai_header_json_schema() {
     _api_start "" || return 1
-    # aicodebox v0.7.0 exposed x-aicodebox-json-schema on the OAI route.
-    # Setting it flips the underlying adapter run to json-verbose mode so
-    # the assistant's final turn is schema-validated; the OAI response
-    # body still carries that text verbatim as message.content. The model
-    # should produce a JSON string that parses + matches the schema.
+    # aicodebox v0.7.0 plumbed x-aicodebox-json-schema; v0.8.0 made it
+    # ACTUALLY validate. On success, message.content is the CANONICAL
+    # re-serialized JSON — no fences, no surrounding prose, just the
+    # parsed object as a JSON string. v0.8.1 additionally surfaces
+    # aicodebox_attempts (per-attempt breakdown, vendor extension).
     local body content
     body=$(_curl_auth -m 180 -X POST "$API_URL/openai/v1/chat/completions" \
         -H "Content-Type: application/json" \
@@ -522,14 +542,50 @@ test_api_oai_header_json_schema() {
         log "  body: ${body:0:500}"
         return 1
     fi
-    # Content must be a JSON object that parses and carries .word=HELLO.
+    # v0.8.0 canonical content: starts with `{`, no leading ``` fences or
+    # prose. The content as-is must be directly parseable JSON.
+    if [[ "${content:0:1}" != "{" ]]; then
+        log "  FAIL: content not canonical JSON (doesn't start with '{'): ${content:0:120}"
+        return 1
+    fi
+    if echo "$content" | grep -q '```'; then
+        log "  FAIL: content carries markdown fences"
+        return 1
+    fi
     local word
     word=$(echo "$content" | jq -r '.word' 2>/dev/null)
     if [[ "${word^^}" != *"HELLO"* ]]; then
         log "  FAIL: schema-header content not schema-conforming: $content"
         return 1
     fi
-    log "  OK: schema-header produced .word=$word in OAI content"
+
+    # v0.8.1 vendor extension — aicodebox_attempts array on the envelope.
+    local has_attempts attempts_shape
+    has_attempts=$(echo "$body" | jq 'has("aicodebox_attempts")')
+    assert_eq "$has_attempts" "true" "OAI envelope carries .aicodebox_attempts (v0.8.1+)" || return 1
+    attempts_shape=$(echo "$body" | jq -r '
+        .aicodebox_attempts[0]
+        | (has("index") and has("exitCode") and has("parseError") and has("usage"))
+    ')
+    assert_eq "$attempts_shape" "true" "aicodebox_attempts[0] has v0.8.1 shape" || return 1
+    log "  OK: schema-header produced canonical content .word=$word + aicodebox_attempts"
+}
+
+test_api_oai_stream_schema_rejected() {
+    _api_start "" || return 1
+    # aicodebox v0.8.0 rules: schema validation needs the COMPLETE response
+    # to validate against. Mid-stream parse failure has no clean recovery
+    # path over SSE, so the combination is rejected at the route with 400.
+    local tmp=/tmp/_stream_schema_$$
+    local code body
+    code=$(_curl_auth -m 10 -o "$tmp" -w "%{http_code}" -X POST "$API_URL/openai/v1/chat/completions" \
+        -H "Content-Type: application/json" \
+        -H 'x-aicodebox-json-schema: {"type":"object"}' \
+        -d '{"model":"pi","messages":[{"role":"user","content":"hi"}],"stream":true}')
+    body=$(cat "$tmp" 2>/dev/null); rm -f "$tmp"
+    assert_eq "$code" "400" "stream:true + schema header → 400" || return 1
+    # Error detail should reference the conflict so the operator knows why.
+    assert_contains "$body" "stream" "rejection detail mentions stream"
 }
 
 test_api_oai_header_json_schema_invalid() {
@@ -745,6 +801,7 @@ ALL_TESTS+=(
     test_api_oai_header_json_schema
     test_api_oai_header_json_schema_invalid
     test_api_oai_header_extra_args
+    test_api_oai_stream_schema_rejected
     test_api_mcp_handshake
     test_api_mcp_auth
     test_api_status

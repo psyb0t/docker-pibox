@@ -1,7 +1,10 @@
 IMAGE_NAME := psyb0t/pibox
-# Default to the published base — override with `make build BASE_IMAGE=...`
-# if you need to test against a local fork of docker-aicodebox.
-BASE_IMAGE := psyb0t/aicodebox:latest
+# Default to a digest-pinned published base — override with
+# `make build BASE_IMAGE=...` if you need to test against a local fork
+# of docker-aicodebox. Pin must match the Dockerfile's ARG default so
+# `make build` (which pulls then builds) doesn't drift from a direct
+# `docker build` invocation.
+BASE_IMAGE := psyb0t/aicodebox:v0.8.1@sha256:3a234d49d348b3182897c781be6b364e6b5d17784c4b70ac12df132e066d6dac
 TAG        := local
 
 .PHONY: all build pull-base test clean help

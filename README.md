@@ -93,7 +93,7 @@ curl -sS -X DELETE -H "Authorization: Bearer your-secret" \
   http://localhost:8080/files/notes/hello.txt
 ```
 
-**`POST /run`** body: `prompt` (required), `workspace`, `model`, `systemPrompt`, `appendSystemPrompt`, `jsonSchema`, `outputFormat`, `noContinue`, `resume`, `timeoutSeconds`, `thinking`, `noTools`, `toolsAllowlist`.
+**`POST /run`** body: `prompt` (required), `workspace`, `model`, `systemPrompt`, `appendSystemPrompt`, `jsonSchema`, `noContinue`, `resume`, `timeoutSeconds`, `thinking`, `noTools`, `toolsAllowlist`, `includeRaw`, `async`, `fireAndForget`. With `jsonSchema` set the response includes `text`, `json`, `events`, `sessionId`, `usage`, `attempts`; without it the response is `{runId, workspace, exitCode, text}`.
 
 ```bash
 curl -s http://localhost:8080/run \
