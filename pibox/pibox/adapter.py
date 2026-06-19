@@ -17,6 +17,7 @@ pi CLI surface used here (see .research_files/pi-deep-dive.md for the full map):
 from __future__ import annotations
 
 import json
+import logging
 import os
 from typing import Any, ClassVar
 
@@ -27,7 +28,22 @@ from aicodebox.adapters.base import (
     StreamEvent,
 )
 
+log = logging.getLogger(__name__)
+
 VALID_THINKING = {"off", "minimal", "low", "medium", "high", "xhigh"}
+
+
+def _truncate(value: Any, limit: int = 80) -> str:
+    """Render a value as a short string for log fields. Never logs full
+    prompts / schemas / tokens — capped so a malicious caller can't blow
+    up log volume by sending huge inputs, and so prompts (which may carry
+    user-private content) don't land in logs verbatim. ``...`` suffix
+    signals truncation occurred.
+    """
+    if value is None:
+        return ""
+    s = str(value)
+    return s if len(s) <= limit else s[:limit] + "..."
 
 
 class PiAdapter(AgentAdapter):
@@ -47,13 +63,30 @@ class PiAdapter(AgentAdapter):
         # exposes ``jsonSchema`` as the only dial — server derives
         # output_format=json-verbose when schema is set, else text. The
         # adapter only adds pi-specific constraints.
+        log.debug(
+            "validate(req): output_format=%s thinking=%s no_tools=%s "
+            "tools_allowlist=%s json_schema=%s resume=%s",
+            req.output_format,
+            req.thinking,
+            req.no_tools,
+            bool(req.tools_allowlist),
+            req.json_schema is not None,
+            bool(req.resume),
+        )
         super().validate(req)
         if req.thinking and req.thinking not in VALID_THINKING:
+            log.warning(
+                "validate(req): rejecting unknown thinking level %r",
+                req.thinking,
+            )
             raise ValueError(
                 f"thinking={req.thinking!r} invalid; "
                 f"choose one of {sorted(VALID_THINKING)}"
             )
         if req.tools_allowlist and req.no_tools:
+            log.warning(
+                "validate(req): rejecting tools_allowlist + no_tools combination",
+            )
             raise ValueError("tools_allowlist and no_tools are mutually exclusive")
 
     def build_argv(self, req: RunRequest) -> list[str]:
@@ -85,18 +118,32 @@ class PiAdapter(AgentAdapter):
                 + json.dumps(req.json_schema)
             )
             argv += ["--append-system-prompt", schema_text]
+            log.debug(
+                "build_argv: bolted JSON schema onto system prompt "
+                "(schema_keys=%s)",
+                list(req.json_schema.keys()),
+            )
 
+        session_choice: str
         if req.resume:
             argv += ["--session", req.resume]
+            session_choice = "resume"
         elif req.no_continue:
             argv += ["--no-session"]
+            session_choice = "no-session"
         else:
             argv += ["--continue"]
+            session_choice = "continue"
 
+        tools_choice: str
         if req.no_tools:
             argv += ["--no-tools"]
+            tools_choice = "none"
         elif req.tools_allowlist:
             argv += ["--tools", ",".join(req.tools_allowlist)]
+            tools_choice = "allowlist"
+        else:
+            tools_choice = "default"
 
         if req.extra_args:
             argv += list(req.extra_args)
@@ -106,8 +153,22 @@ class PiAdapter(AgentAdapter):
         # scripts/setup-anthropic-baseurl.sh. When the user has set an
         # Anthropic-compatible base URL, force the request through the
         # `anthropic` provider unless they explicitly chose one in extra_args.
+        forced_anthropic = False
         if os.environ.get("ANTHROPIC_BASE_URL") and "--provider" not in argv:
             argv += ["--provider", "anthropic"]
+            forced_anthropic = True
+
+        log.debug(
+            "build_argv: model=%s thinking=%s session=%s tools=%s "
+            "extra_args=%d forced_provider_anthropic=%s argc=%d",
+            req.model or "(default)",
+            req.thinking or "(default)",
+            session_choice,
+            tools_choice,
+            len(req.extra_args or []),
+            forced_anthropic,
+            len(argv),
+        )
 
         # Prompt is piped to stdin by aicodebox.shared.runner — do NOT also
         # append it to argv. pi's `-p` mode merges stdin + positional with no
@@ -135,18 +196,34 @@ class PiAdapter(AgentAdapter):
         the base can validate it against ``jsonSchema``.
         """
         del req
+        line_count = 0
+        decoded_count = 0
+        decode_errors = 0
         session_id = ""
         text_parts: list[str] = []
         usage: dict[str, Any] | None = None
+        last_provider_error: str | None = None
 
         for line in stdout.splitlines():
             line = line.strip()
             if not line:
                 continue
+            line_count += 1
             try:
                 evt = json.loads(line)
-            except json.JSONDecodeError:
+            except json.JSONDecodeError as exc:
+                # pi's --mode json should never emit malformed lines, but
+                # we tolerate it best-effort. Count + log so the operator
+                # sees something is off; raw bytes reachable via
+                # includeRaw=true.
+                decode_errors += 1
+                log.warning(
+                    "parse_output: dropping malformed NDJSON line (err=%s, sample=%r)",
+                    exc.msg,
+                    _truncate(line, 80),
+                )
                 continue
+            decoded_count += 1
 
             etype = evt.get("type")
             if etype == "session" and not session_id:
@@ -158,6 +235,22 @@ class PiAdapter(AgentAdapter):
                 msg = evt.get("message") or {}
                 if not isinstance(msg, dict) or msg.get("role") != "assistant":
                     continue
+                # Capture upstream provider errors (e.g. 401 / rate-limit /
+                # ByteString) — pi reports them under stopReason=error +
+                # errorMessage on the assistant message. Without surfacing
+                # these the operator sees an empty .text and zero clue
+                # what went wrong.
+                if msg.get("stopReason") == "error":
+                    err_msg = msg.get("errorMessage")
+                    if isinstance(err_msg, str) and err_msg:
+                        last_provider_error = err_msg
+                        log.warning(
+                            "parse_output: assistant turn errored "
+                            "(provider=%s model=%s err=%s)",
+                            msg.get("provider"),
+                            msg.get("model"),
+                            _truncate(err_msg, 200),
+                        )
                 content = msg.get("content")
                 if isinstance(content, str):
                     if content:
@@ -189,6 +282,18 @@ class PiAdapter(AgentAdapter):
             if "output" in usage:
                 usage.setdefault("output_tokens", usage["output"])
 
+        log.info(
+            "parse_output: text_len=%d session_id=%s lines=%d decoded=%d "
+            "decode_errors=%d usage_keys=%s provider_error=%s",
+            len(text),
+            session_id or "(none)",
+            line_count,
+            decoded_count,
+            decode_errors,
+            sorted(usage.keys()) if usage else [],
+            bool(last_provider_error),
+        )
+
         return RunResult(
             text=text,
             raw_stdout=stdout,
@@ -205,21 +310,43 @@ class PiAdapter(AgentAdapter):
 
         Returned verbatim to /run callers as the ``events`` field when
         ``output_format=json-verbose``. Lines that fail to decode or aren't
-        objects are dropped silently — events is best-effort; the raw bytes
+        objects are warned + dropped — events is best-effort; the raw bytes
         are reachable via ``includeRaw: true`` if a caller needs them.
         """
         del req
         events: list[dict[str, Any]] = []
+        decode_errors = 0
+        non_dict = 0
         for line in stdout.splitlines():
             line = line.strip()
             if not line:
                 continue
             try:
                 evt = json.loads(line)
-            except json.JSONDecodeError:
+            except json.JSONDecodeError as exc:
+                decode_errors += 1
+                log.warning(
+                    "parse_events: dropping malformed NDJSON line "
+                    "(err=%s, sample=%r)",
+                    exc.msg,
+                    _truncate(line, 80),
+                )
                 continue
             if isinstance(evt, dict):
                 events.append(evt)
+            else:
+                non_dict += 1
+                log.warning(
+                    "parse_events: dropping non-object event (type=%s)",
+                    type(evt).__name__,
+                )
+
+        log.debug(
+            "parse_events: events=%d decode_errors=%d non_dict=%d",
+            len(events),
+            decode_errors,
+            non_dict,
+        )
         return events
 
     def parse_stream_event(
@@ -244,7 +371,13 @@ class PiAdapter(AgentAdapter):
             return None
         try:
             evt = json.loads(line)
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as exc:
+            log.warning(
+                "parse_stream_event: dropping malformed NDJSON line "
+                "(err=%s, sample=%r)",
+                exc.msg,
+                _truncate(line, 80),
+            )
             return None
 
         etype = evt.get("type")

@@ -4,13 +4,16 @@
 #   docker build -t aicodebox-base:local ../docker-aicodebox/
 #   docker build --build-arg BASE_IMAGE=aicodebox-base:local -t pibox:local .
 #
-# Base pinned to aicodebox v0.8.1 by digest. v0.8.x ships:
-#   - JSON-schema validation on /openai/v1/chat/completions (was missing)
-#   - per-attempt usage breakdown + summed billing across retries
-#   - agent-crash 500 vs schema-exhaustion 422 split
-#   - smarter JSON extraction (fenced-in-prose, brace-balanced)
-# Digest pin guards against tag-rebuild drift even when latest moves.
-ARG BASE_IMAGE=psyb0t/aicodebox:v0.8.1@sha256:3a234d49d348b3182897c781be6b364e6b5d17784c4b70ac12df132e066d6dac
+# Base pinned to aicodebox v0.8.3 (tag-only — v0.8.3 image not yet on the
+# registry at release time; digest pin will be added once it's pushed).
+# v0.8.x ships:
+#   - JSON-schema validation on /openai/v1/chat/completions (v0.8.0)
+#   - per-attempt usage breakdown + summed billing across retries (v0.8.1)
+#   - agent-crash 500 vs schema-exhaustion 422 split (v0.8.1)
+#   - smarter JSON extraction (fenced-in-prose, brace-balanced) (v0.8.0)
+#   - reconstruction-grade logging on the schema-mode path (v0.8.2)
+#   - single-source __version__ via importlib.metadata (v0.8.3)
+ARG BASE_IMAGE=psyb0t/aicodebox:v0.8.3
 FROM ${BASE_IMAGE}
 
 # pi-coding-agent — pinned npm install.

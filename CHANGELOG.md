@@ -4,6 +4,68 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.10.0 — 2026-06-19
+
+Track aicodebox v0.8.3 — base-side schema-mode logging + single-source
+versioning. Add reconstruction-grade logging to PiAdapter. Adopt the same
+single-source versioning pattern across pibox.
+
+- **Base image bump.** `Dockerfile` + `Makefile` + `tests/common.sh`
+  `BASE_IMAGE` pinned to `psyb0t/aicodebox:v0.8.3` (was `v0.8.1@sha256:...`).
+  Tag-only this time — the v0.8.3 image is not yet on Docker Hub at release
+  time; digest pin will be added once it's pushed. v0.8.x base changes
+  inherited: reconstruction-grade logs on the schema-mode path (v0.8.2)
+  and single-source `__version__` via `importlib.metadata` (v0.8.3).
+- **PiAdapter logging (new).** Adapter was previously silent — zero
+  `logging` calls. Brought up to spec against
+  `~/.claude/rules/06-logging.md` (reconstruction-grade detail):
+  - `pibox.adapter` logger; uses the base's existing `_JsonFormatter`,
+    no new dependency.
+  - `validate(req)`: DEBUG entry summarising output_format / thinking /
+    no_tools / tools_allowlist / json_schema / resume flags. WARN on
+    each rejected combination (unknown thinking level, tools_allowlist
+    × no_tools mutex) with the rejected value.
+  - `build_argv(req)`: DEBUG decision-summary (model, thinking, session
+    choice = resume|no-session|continue, tools choice =
+    none|allowlist|default, extra_args count, forced-provider-anthropic
+    flag, final argc). Plus a separate DEBUG when the JSON-schema
+    system-prompt fragment is bolted on (logs schema_keys, never the
+    schema body — keeps log volume bounded).
+  - `parse_output(stdout, req)`: WARN per malformed NDJSON line
+    (previously silent-swallowed — violated `05-error-handling.md`).
+    WARN when an assistant turn carries `stopReason=error` +
+    `errorMessage` — previously these went undiagnosed (the 401 / token
+    / ByteString failures customers hit returned empty `.text` with no
+    log trail). INFO summary: text_len, session_id, lines, decoded,
+    decode_errors, usage_keys, provider_error flag.
+  - `parse_events(stdout, req)`: WARN per malformed line + per non-dict
+    event. DEBUG summary (events, decode_errors, non_dict).
+  - `parse_stream_event(line, req)`: WARN per malformed line.
+  - Security: NO tokens / NO secrets / NO full prompts / NO full
+    schemas in any log line. Provider errors truncated to ≤200 chars;
+    sample lines truncated to ≤80 chars; only schema KEYS (not values)
+    are surfaced.
+- **Single-source versioning per `~/.claude/rules/49-versioning.md`.**
+  - `pibox/pyproject.toml` `[project] version` is now THE canonical
+    version source. Bumped to `0.10.0` (was stuck at `0.1.0` since
+    initial release — same drift bug aicodebox fixed in v0.8.3).
+  - `pibox/pibox/__init__.py` reads `__version__` via
+    `importlib.metadata.version("pibox")`. Fallback sentinel
+    `0.0.0+source` when running from a source checkout so the drift
+    is OBVIOUS rather than silently reporting a stale hardcoded number.
+  - `Makefile` derives `TAG` from `pyproject.toml` via `awk`, tags
+    BOTH `:v0.10.0` AND `:latest` on every `make build`. New
+    `make version` target prints what would be tagged. Override at
+    build time via `VERSION=… make build` for one-offs.
+- **Makefile build resilience.** `pull-base` honors `SKIP_BASE_PULL=1`
+  (mirrors `tests/common.sh`'s existing knob) — needed because the
+  v0.8.3 base wasn't on the registry at release time. The local image
+  is used when set; bails clearly when it's also missing.
+- **All 46 tests pass** against the new build (`SKIP_BUILD=1
+  SKIP_BASE_PULL=1 ./test.sh`).
+- PiAdapter functional contract unchanged. No `/run` / OAI / MCP /
+  files-API wire changes. No doc-sync needed beyond the CHANGELOG.
+
 ## v0.9.0 — 2026-06-18
 
 Track aicodebox v0.8.1 — schema validation actually runs on OAI, per-attempt
