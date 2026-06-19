@@ -511,15 +511,76 @@ test_api_oai_chat() {
 
 test_api_oai_reject_tools() {
     _api_start "" || return 1
+    # tools[] is still rejected — pi runs its own tool surface and the
+    # OAI base doesn't have a mapping to it.
     local code
     code=$(_curl_auth -m 5 -o /dev/null -w "%{http_code}" -X POST "$API_URL/openai/v1/chat/completions" \
         -H "Content-Type: application/json" \
         -d '{"model":"x","messages":[{"role":"user","content":"hi"}],"tools":[{"type":"function","function":{"name":"x"}}]}')
-    assert_eq "$code" "400" "oai tools → 400" || return 1
-    code=$(_curl_auth -m 5 -o /dev/null -w "%{http_code}" -X POST "$API_URL/openai/v1/chat/completions" \
+    assert_eq "$code" "400" "oai tools → 400"
+}
+
+test_api_oai_response_format_json_object() {
+    _api_start "" || return 1
+    # aicodebox v0.9.0+: response_format={"type":"json_object"} is the
+    # OpenAI-standard way to force JSON output. The base turns this into
+    # a permissive {"type":"object"} schema and runs the full
+    # retry-validation helper. message.content is canonical re-serialized
+    # JSON (no fences, no surrounding prose). Stock OAI SDKs (LangChain,
+    # openai-python, LlamaIndex) drive this without custom-header surgery.
+    local body content
+    body=$(_curl_auth -m 180 -X POST "$API_URL/openai/v1/chat/completions" \
         -H "Content-Type: application/json" \
-        -d '{"model":"x","messages":[{"role":"user","content":"hi"}],"response_format":{"type":"json_object"}}')
-    assert_eq "$code" "400" "oai response_format=json_object → 400"
+        -d '{"model":"pi","messages":[{"role":"user","content":"Produce a JSON object where the word field is exactly HELLO."}],"response_format":{"type":"json_object"}}')
+    assert_contains "$body" "\"object\":\"chat.completion\"" "json_object response shape" || return 1
+
+    content=$(echo "$body" | jq -r '.choices[0].message.content')
+    if [[ "${content:0:1}" != "{" ]]; then
+        log "  FAIL: content not canonical JSON (doesn't start with '{'): ${content:0:120}"
+        return 1
+    fi
+    # Must parse and carry .word=HELLO.
+    local word
+    word=$(echo "$content" | jq -r '.word' 2>/dev/null)
+    if [[ "${word^^}" != *"HELLO"* ]]; then
+        log "  FAIL: content not schema-conforming: $content"
+        return 1
+    fi
+    log "  OK: response_format=json_object produced canonical .word=$word"
+}
+
+test_api_oai_response_format_json_schema() {
+    _api_start "" || return 1
+    # aicodebox v0.9.0+: response_format={"type":"json_schema",
+    # "json_schema":{"name":"...","schema":{...}}} is OpenAI's structured-
+    # outputs shape. The base reads .json_schema.schema and runs the same
+    # validation + retry path. message.content is the validated JSON.
+    local body content word
+    body=$(_curl_auth -m 180 -X POST "$API_URL/openai/v1/chat/completions" \
+        -H "Content-Type: application/json" \
+        -d '{
+              "model":"pi",
+              "messages":[{"role":"user","content":"Produce a JSON object where word is exactly HELLO."}],
+              "response_format":{
+                "type":"json_schema",
+                "json_schema":{
+                  "name":"reply",
+                  "schema":{"type":"object","properties":{"word":{"type":"string"}},"required":["word"]}
+                }
+              }
+            }')
+    assert_contains "$body" "\"object\":\"chat.completion\"" "json_schema response shape" || return 1
+    content=$(echo "$body" | jq -r '.choices[0].message.content')
+    if [[ "${content:0:1}" != "{" ]]; then
+        log "  FAIL: content not canonical JSON: ${content:0:120}"
+        return 1
+    fi
+    word=$(echo "$content" | jq -r '.word' 2>/dev/null)
+    if [[ "${word^^}" != *"HELLO"* ]]; then
+        log "  FAIL: content .word=$word (expected HELLO)"
+        return 1
+    fi
+    log "  OK: response_format=json_schema produced canonical .word=$word"
 }
 
 test_api_oai_header_json_schema() {
@@ -798,6 +859,8 @@ ALL_TESTS+=(
     test_api_oai_models
     test_api_oai_chat
     test_api_oai_reject_tools
+    test_api_oai_response_format_json_object
+    test_api_oai_response_format_json_schema
     test_api_oai_header_json_schema
     test_api_oai_header_json_schema_invalid
     test_api_oai_header_extra_args

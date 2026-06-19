@@ -4,6 +4,51 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.11.0 — 2026-06-19
+
+Track aicodebox v0.9.0 — OpenAI-standard `response_format` body field on
+`/openai/v1/chat/completions`. Stock OAI SDKs (LangChain, openai-python,
+LlamaIndex) can now drive schema enforcement without our proprietary
+`x-aicodebox-json-schema` header.
+
+- **Base image bump.** `Dockerfile` + `Makefile` + `tests/common.sh`
+  `BASE_IMAGE` pinned to `psyb0t/aicodebox:v0.9.0` (was `v0.8.3`).
+  Tag-only — v0.9.0 image not yet on Docker Hub at release time;
+  digest pin pending registry push.
+- **Breaking (OAI schema-mode callers).** `response_format` body field
+  is now honoured by the base. Callers that depended on the previous
+  400 rejection for `response_format={"type":"json_object"}` as a
+  control-flow signal must update — it's now a valid request that
+  runs the schema-validation retry helper.
+  - `type=text` → no schema (default, unchanged)
+  - `type=json_object` → permissive `{"type":"object"}` constraint —
+    forces parseable JSON without restricting structure
+  - `type=json_schema` → uses `response_format.json_schema.schema`
+    (OpenAI structured-outputs shape) as the constraint
+  - Failure semantics unchanged: success → canonical re-serialized
+    JSON content; retries exhausted → 422; agent crash → 500;
+    `stream:true + schema` → 400.
+  - Precedence when both body and `x-aicodebox-json-schema` header
+    are set: body wins (OAI standard); base logs the conflict at INFO.
+- **Tests.**
+  - `test_api_oai_reject_tools`: dropped the
+    `response_format=json_object → 400` assertion (no longer rejected;
+    that exact scenario is now the happy path of the new test below).
+    `tools[]` still rejected (pi runs its own tool surface).
+  - `test_api_oai_response_format_json_object` (new): asserts the body
+    field forces JSON output, content is canonical (starts with `{`),
+    schema-conforming `{"word":"HELLO"}`.
+  - `test_api_oai_response_format_json_schema` (new): asserts the
+    structured-outputs shape (`type=json_schema` +
+    `json_schema.schema=...`) drives validation end-to-end.
+- All 48 tests pass against the new build
+  (`SKIP_BUILD=1 SKIP_BASE_PULL=1 ./test.sh`).
+- PiAdapter unchanged — base v0.9.0 only added route-level body
+  parsing. Adapter contract was already wide enough.
+- No README sync needed; the `/run` body field list is unchanged. The
+  README's "OpenAI-compatible" section already promises OAI-shape
+  compat, which `response_format` body field strengthens.
+
 ## v0.10.0 — 2026-06-19
 
 Track aicodebox v0.8.3 — base-side schema-mode logging + single-source
