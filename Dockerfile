@@ -4,9 +4,13 @@
 #   docker build -t aicodebox-base:local ../docker-aicodebox/
 #   docker build --build-arg BASE_IMAGE=aicodebox-base:local -t pibox:local .
 #
-# Base pinned to aicodebox v0.9.0 (tag-only — v0.9.0 image not yet on the
+# Base pinned to aicodebox v0.9.1 (tag-only — v0.9.1 image not yet on the
 # registry at release time; digest pin will be added once it's pushed).
-# v0.9.0 adds OpenAI-standard response_format body field support on
+# v0.9.1 fixes the schema-mode retry helper to include the original task
+# in each retry prompt (previously: only the bad output + error + schema,
+# leaving the fresh-session retry agent with no idea what task it was
+# correcting — fatal for large-enum / domain-identifier schemas).
+# v0.9.0 added OpenAI-standard response_format body field support on
 # /openai/v1/chat/completions — stock OAI SDKs (LangChain, openai-python,
 # LlamaIndex) can drive schema validation without our proprietary
 # x-aicodebox-json-schema header. v0.8.x changes inherited:
@@ -16,7 +20,7 @@
 #   - smarter JSON extraction (fenced-in-prose, brace-balanced) (v0.8.0)
 #   - reconstruction-grade logging on the schema-mode path (v0.8.2)
 #   - single-source __version__ via importlib.metadata (v0.8.3)
-ARG BASE_IMAGE=psyb0t/aicodebox:v0.9.0
+ARG BASE_IMAGE=psyb0t/aicodebox:v0.9.1
 FROM ${BASE_IMAGE}
 
 # pi-coding-agent — pinned npm install.

@@ -4,6 +4,30 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.11.1 — 2026-06-22
+
+Track aicodebox v0.9.1 — schema-mode retry prompt now carries the
+original task so the fresh-session retry agent has context to correct
+informed.
+
+- **Base image bump.** `Dockerfile` + `Makefile` + `tests/common.sh`
+  `BASE_IMAGE` → `psyb0t/aicodebox:v0.9.1` (was `v0.9.0`). Tag-only —
+  v0.9.1 image not yet on Docker Hub at release time; digest pin
+  pending registry push.
+- **Inherited bug fix.** Schema-mode retries (since v0.8.0) run with
+  `no_continue=True` for fresh-session correction. Through v0.9.0 the
+  retry prompt carried only the bad output + parse error + schema —
+  NO original task. For schemas where correction depends on task
+  context (large enum picks, allowed-values lists, domain identifiers)
+  the retry agent had ~zero chance of correcting. v0.9.1 re-states the
+  original task in the retry body. Net effect: retries succeed more
+  often, so cumulative token usage on retrying schema runs should DROP
+  even though each individual retry prompt is slightly longer.
+- PiAdapter unchanged. No new tests (existing schema-via-`/run` +
+  schema-via-OAI tests still exercise the path end-to-end). 48/48 green.
+- Pibox version bump via the single-source pattern (0.11.0 → 0.11.1,
+  patch — pure base bug-fix tracking, no pibox-side API changes).
+
 ## v0.11.0 — 2026-06-19
 
 Track aicodebox v0.9.0 — OpenAI-standard `response_format` body field on
