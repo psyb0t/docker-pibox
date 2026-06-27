@@ -7,5 +7,4 @@ except PackageNotFoundError:
     # Source checkout, package not installed. Don't fall back to a
     # hardcoded number — that's the drift this whole pattern exists to
     # prevent. Use a sentinel so the bug is obvious.
-    # See ~/.claude/rules/49-versioning.md.
     __version__ = "0.0.0+source"

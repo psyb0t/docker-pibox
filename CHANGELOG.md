@@ -4,6 +4,39 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.11.2 — 2026-06-27
+
+Track aicodebox v0.10.0 — cheap schema retries via ephemeral workspace +
+session-continue on `/openai/v1/chat/completions`.
+
+- **Base image bump.** `Dockerfile` + `Makefile` + `tests/common.sh`
+  `BASE_IMAGE` → `psyb0t/aicodebox:v0.10.0` (was `v0.9.1`). Tag-only —
+  v0.10.0 image not yet on Docker Hub at release time; digest pin
+  pending registry push.
+- **Inherited optimization.** Schema-mode retries on
+  `/openai/v1/chat/completions` no longer replay the full original
+  prompt:
+  - Schema request + no `x-aicodebox-workspace` header → base allocates
+    ephemeral `/tmp/aicodebox/<uuid>/` (mode `0o700`), cleaned up in
+    `finally` after every code path (200 / 422 / 500).
+  - `run_with_json_retry` runs retries with `no_continue=False` +
+    minimal corrective prompt (error + directive + schema) instead of
+    replaying the full original input.
+  - Caller-provided workspace → fresh-session retry fallback (v0.9.1
+    behavior); isolation guarantees only on workspaces the base owns.
+  - Cost: a 100k-token request needing 3 retries paid 400k input tokens
+    before v0.10.0; now ~100k + ~1.5k corrective overhead per retry.
+  - `/run` callers unchanged — `run_with_json_retry` gained
+    `continue_session_on_retry` (default `False`) that the OAI route
+    flips to `True` when it owns an ephemeral workspace.
+- PiAdapter unchanged. The `--continue` vs `--no-session` argv branch
+  already maps to `req.no_continue` correctly; the base controls which
+  value to pass.
+- All 48 tests pass against the new build
+  (`SKIP_BUILD=1 SKIP_BASE_PULL=1 ./test.sh`).
+- Patch bump (v0.11.1 → v0.11.2) — pure base-side optimization
+  tracking, no pibox-side wire/API changes.
+
 ## v0.11.1 — 2026-06-22
 
 Track aicodebox v0.9.1 — schema-mode retry prompt now carries the
@@ -87,7 +120,7 @@ single-source versioning pattern across pibox.
   and single-source `__version__` via `importlib.metadata` (v0.8.3).
 - **PiAdapter logging (new).** Adapter was previously silent — zero
   `logging` calls. Brought up to spec against
-  `~/.claude/rules/06-logging.md` (reconstruction-grade detail):
+  reconstruction-grade detail (structured DEBUG/INFO/WARN with file/line/func metadata):
   - `pibox.adapter` logger; uses the base's existing `_JsonFormatter`,
     no new dependency.
   - `validate(req)`: DEBUG entry summarising output_format / thinking /
@@ -101,7 +134,7 @@ single-source versioning pattern across pibox.
     system-prompt fragment is bolted on (logs schema_keys, never the
     schema body — keeps log volume bounded).
   - `parse_output(stdout, req)`: WARN per malformed NDJSON line
-    (previously silent-swallowed — violated `05-error-handling.md`).
+    (previously silent-swallowed).
     WARN when an assistant turn carries `stopReason=error` +
     `errorMessage` — previously these went undiagnosed (the 401 / token
     / ByteString failures customers hit returned empty `.text` with no
@@ -114,7 +147,7 @@ single-source versioning pattern across pibox.
     schemas in any log line. Provider errors truncated to ≤200 chars;
     sample lines truncated to ≤80 chars; only schema KEYS (not values)
     are surfaced.
-- **Single-source versioning per `~/.claude/rules/49-versioning.md`.**
+- **Single-source versioning.**
   - `pibox/pyproject.toml` `[project] version` is now THE canonical
     version source. Bumped to `0.10.0` (was stuck at `0.1.0` since
     initial release — same drift bug aicodebox fixed in v0.8.3).

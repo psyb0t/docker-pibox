@@ -1,15 +1,16 @@
 IMAGE_NAME := psyb0t/pibox
-# Single-source version derivation per ~/.claude/rules/49-versioning.md.
-# pibox/pyproject.toml [project] version is THE source. awk reads it on
-# the host (no Python dep needed just to read the version). Override at
-# build time for one-offs: `VERSION=0.10.1-rc1 make build`.
+# Single-source version derivation: pibox/pyproject.toml [project]
+# version is THE source. awk reads it on the host (no Python dep
+# needed just to read the version). __init__.py reads the same value
+# at runtime via importlib.metadata. Override at build time for
+# one-offs: `VERSION=0.10.1-rc1 make build`.
 VERSION    ?= $(shell awk -F\" '/^version *= *"/ {print $$2; exit}' pibox/pyproject.toml)
 TAG        := v$(VERSION)
 # Default to the published base — override with `make build BASE_IMAGE=...`
 # if you need to test against a local fork of docker-aicodebox. Pin must
 # match the Dockerfile's ARG default so `make build` (which pulls then
 # builds) doesn't drift from a direct `docker build` invocation.
-BASE_IMAGE := psyb0t/aicodebox:v0.9.1
+BASE_IMAGE := psyb0t/aicodebox:v0.10.0
 
 .PHONY: all build pull-base test clean help version
 

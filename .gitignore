@@ -25,3 +25,4 @@ __pycache__/
 tests/logs/
 tests/.logs/
 tests/.fixtures/
+.telemetry

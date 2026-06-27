@@ -4,12 +4,21 @@
 #   docker build -t aicodebox-base:local ../docker-aicodebox/
 #   docker build --build-arg BASE_IMAGE=aicodebox-base:local -t pibox:local .
 #
-# Base pinned to aicodebox v0.9.1 (tag-only — v0.9.1 image not yet on the
-# registry at release time; digest pin will be added once it's pushed).
-# v0.9.1 fixes the schema-mode retry helper to include the original task
-# in each retry prompt (previously: only the bad output + error + schema,
-# leaving the fresh-session retry agent with no idea what task it was
-# correcting — fatal for large-enum / domain-identifier schemas).
+# Base pinned to aicodebox v0.10.0 (tag-only — v0.10.0 image not yet on
+# the registry at release time; digest pin will be added once it's
+# pushed). v0.10.0 makes schema-mode retries CHEAP on
+# /openai/v1/chat/completions — when no x-aicodebox-workspace is set,
+# the route allocates an ephemeral /tmp/aicodebox/<uuid>/ (mode 0o700)
+# and tells run_with_json_retry to session-continue the conversation
+# instead of replaying the full original prompt. A 100k-token request
+# needing 3 retries used to pay 400k input tokens; now ~100k + ~1.5k
+# corrective overhead. Cleaned up in `finally` after every code path
+# (200 / 422 / 500). /run callers unchanged.
+# v0.9.1 fixed the schema-mode retry helper to include the original
+# task in each retry prompt (previously: only the bad output + error
+# + schema, leaving the fresh-session retry agent with no idea what
+# task it was correcting — fatal for large-enum / domain-identifier
+# schemas).
 # v0.9.0 added OpenAI-standard response_format body field support on
 # /openai/v1/chat/completions — stock OAI SDKs (LangChain, openai-python,
 # LlamaIndex) can drive schema validation without our proprietary
@@ -20,7 +29,7 @@
 #   - smarter JSON extraction (fenced-in-prose, brace-balanced) (v0.8.0)
 #   - reconstruction-grade logging on the schema-mode path (v0.8.2)
 #   - single-source __version__ via importlib.metadata (v0.8.3)
-ARG BASE_IMAGE=psyb0t/aicodebox:v0.9.1
+ARG BASE_IMAGE=psyb0t/aicodebox:v0.10.0
 FROM ${BASE_IMAGE}
 
 # pi-coding-agent — pinned npm install.
