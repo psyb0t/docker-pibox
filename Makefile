@@ -10,7 +10,7 @@ TAG        := v$(VERSION)
 # if you need to test against a local fork of docker-aicodebox. Pin must
 # match the Dockerfile's ARG default so `make build` (which pulls then
 # builds) doesn't drift from a direct `docker build` invocation.
-BASE_IMAGE := psyb0t/aicodebox:v0.10.0
+BASE_IMAGE := psyb0t/aicodebox:v0.10.1
 
 .PHONY: all build pull-base test clean help version
 

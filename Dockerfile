@@ -4,9 +4,13 @@
 #   docker build -t aicodebox-base:local ../docker-aicodebox/
 #   docker build --build-arg BASE_IMAGE=aicodebox-base:local -t pibox:local .
 #
-# Base pinned to aicodebox v0.10.0 (tag-only — v0.10.0 image not yet on
+# Base pinned to aicodebox v0.10.1 (tag-only — v0.10.1 image not yet on
 # the registry at release time; digest pin will be added once it's
-# pushed). v0.10.0 makes schema-mode retries CHEAP on
+# pushed). v0.10.1 adds a 10-minute safety-net purge that sweeps
+# orphaned /tmp/aicodebox/<uuid>/ workspaces (TTL 1h). Covers the
+# SIGKILL / container-restart / cleanup-helper-raise cases the v0.10.0
+# `finally` block can't reach.
+# v0.10.0 made schema-mode retries CHEAP on
 # /openai/v1/chat/completions — when no x-aicodebox-workspace is set,
 # the route allocates an ephemeral /tmp/aicodebox/<uuid>/ (mode 0o700)
 # and tells run_with_json_retry to session-continue the conversation
@@ -29,7 +33,7 @@
 #   - smarter JSON extraction (fenced-in-prose, brace-balanced) (v0.8.0)
 #   - reconstruction-grade logging on the schema-mode path (v0.8.2)
 #   - single-source __version__ via importlib.metadata (v0.8.3)
-ARG BASE_IMAGE=psyb0t/aicodebox:v0.10.0
+ARG BASE_IMAGE=psyb0t/aicodebox:v0.10.1
 FROM ${BASE_IMAGE}
 
 # pi-coding-agent — pinned npm install.

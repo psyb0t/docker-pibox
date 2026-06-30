@@ -4,6 +4,31 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.11.3 — 2026-06-30
+
+Track aicodebox v0.10.1 — periodic safety-net purge for orphaned
+ephemeral workspaces.
+
+- **Base image bump.** `Dockerfile` + `Makefile` + `tests/common.sh`
+  `BASE_IMAGE` → `psyb0t/aicodebox:v0.10.1` (was `v0.10.0`). Tag-only —
+  v0.10.1 image not yet on Docker Hub at release time; digest pin
+  pending registry push.
+- **Inherited operational fix.** v0.10.0 cleans up ephemeral
+  `/tmp/aicodebox/<uuid>/` workspaces in `finally` after every request
+  code path. But `finally` doesn't run on SIGKILL, on container
+  restart with a leftover root, or when the cleanup helper itself
+  raises. v0.10.1 adds a periodic sweep (every 10 minutes) that
+  removes ephemeral-workspace directories older than 1h (covers
+  worst-case schema runs 10x over). Bonus: `purge_stale_uploads`
+  now also logs a WARN on skipped/failed entries instead of silently
+  swallowing OSError.
+- PiAdapter unchanged. /run callers unchanged. Adapter contract
+  unaffected — internal base-side periodic-purge wiring only.
+- All 48 tests pass against the new build
+  (`SKIP_BUILD=1 SKIP_BASE_PULL=1 ./test.sh`).
+- Patch bump (v0.11.2 → v0.11.3) — pure base-side operational fix
+  tracking, no pibox-side wire/API changes.
+
 ## v0.11.2 — 2026-06-27
 
 Track aicodebox v0.10.0 — cheap schema retries via ephemeral workspace +
