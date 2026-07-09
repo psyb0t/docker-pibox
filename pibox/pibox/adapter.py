@@ -294,6 +294,10 @@ class PiAdapter(AgentAdapter):
             bool(last_provider_error),
         )
 
+        # exit_code stays 0 here — runner._run_popen overwrites it with the
+        # subprocess return code right after this call regardless of what
+        # we set. provider_error is the actual signal callers must check;
+        # it survives that overwrite since it's a separate field.
         return RunResult(
             text=text,
             raw_stdout=stdout,
@@ -301,6 +305,7 @@ class PiAdapter(AgentAdapter):
             exit_code=0,
             session_id=session_id,
             usage=usage,
+            provider_error=last_provider_error,
         )
 
     def parse_events(

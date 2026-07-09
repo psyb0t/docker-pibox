@@ -4,6 +4,40 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.12.0 — 2026-07-09
+
+Track aicodebox v0.11.0 and populate the new `provider_error` field —
+upstream provider errors (content-safety rejections, rate limits, auth
+failures) now surface as HTTP `400` on `/openai/v1/chat/completions`
+instead of a `200` with empty `text`.
+
+- **Base image bump.** `Dockerfile` + `Makefile` `BASE_IMAGE` →
+  `psyb0t/aicodebox:v0.11.0`, digest-pinned to the multi-arch manifest
+  index `sha256:9d5406fe2a336e97a41dd847ef55614386e68d6f3d7b331fa717678`
+  `1571efd5a` (v0.11.0 is on Docker Hub, so the pin the earlier releases
+  deferred is now in place). `tests/common.sh` uses the plain
+  `v0.11.0` tag.
+- **PiAdapter change.** `parse_output` now passes the captured
+  provider-error detail through on `RunResult.provider_error` (the base
+  field added in aicodebox v0.11.0). pi reports an upstream rejection as
+  `stopReason=error` + `errorMessage` on the assistant turn; the adapter
+  already logged that at WARN, and now also forwards it so the OAI route
+  can turn it into a proper error response.
+- **Behavior change (via the base).** When the model provider rejects a
+  request (e.g. a `[1301]` content-safety error) the agent process still
+  exits `0` with empty text. Previously the OAI endpoint returned a
+  `200` with `""` content — an empty-but-valid completion that hid the
+  failure. Now the base checks `provider_error` ahead of the exit-code /
+  parse-error handling and returns HTTP `400` with the provider's
+  message, and the schema-mode retry helper stops re-prompting the
+  moment a provider error appears (replaying the same prompt into the
+  same filter never helps). **Breaking** for callers that treated a
+  `200`-with-empty-text as success.
+- All 48 tests pass against the new build
+  (`SKIP_BUILD=1 SKIP_BASE_PULL=1 ./test.sh`).
+- Minor bump (v0.11.3 → v0.12.0) — the OAI wire behavior on provider
+  errors changed from `200` to `400`.
+
 ## v0.11.3 — 2026-06-30
 
 Track aicodebox v0.10.1 — periodic safety-net purge for orphaned
