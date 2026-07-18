@@ -4,10 +4,28 @@
 #   docker build -t aicodebox-base:local ../docker-aicodebox/
 #   docker build --build-arg BASE_IMAGE=aicodebox-base:local -t pibox:local .
 #
-# Base pinned to aicodebox v0.11.0, digest sha256:9d5406fe2a336e97a41d
-# d847ef55614386e68d6f3d7b331fa7176781571efd5a (the multi-arch manifest
-# index). v0.11.0 surfaces upstream provider errors (content-safety
-# rejections, rate limits, auth failures) as HTTP 400 on
+# Base pinned to aicodebox v0.13.0 (tag-only — built locally, not yet on
+# the registry; digest pin will be added once it's pushed). v0.13.0 lets
+# `tools` and `response_format` COMPOSE in one request on
+# /openai/v1/chat/completions — an agentic tool-calling flow can now end
+# in a schema-validated structured JSON reply (v0.12.0 rejected that
+# pairing with a 400). They describe different turn types: a tool-call
+# turn → tool_calls / finish_reason=tool_calls (NOT schema-checked); the
+# final-answer turn (model stops calling tools) → validated against the
+# schema with the same up-to-3-retry self-correction (exhausted → 422,
+# crash → 500). The tools directive carries the final-answer schema so
+# the model is told both exits coherently. tools + stream:true still →
+# 400.
+# v0.12.0 adds OpenAI-style client-executed tool calling on
+# /openai/v1/chat/completions: a client that sends `tools` gets
+# `tool_calls` back (finish_reason=tool_calls), runs the tool in its own
+# environment, and sends the result back — stateless, exactly like
+# OpenAI. In tool mode the harness's own internal tools default OFF (the
+# machine acts as a pure function-calling model); send
+# x-aicodebox-no-tools: 0 to re-enable the hybrid. tool_choice
+# (auto/none/required/specific) is honored.
+# v0.11.0 surfaces upstream provider errors (content-safety rejections,
+# rate limits, auth failures) as HTTP 400 on
 # /openai/v1/chat/completions instead of a 200 with empty text.
 # RunResult gained a `provider_error` field; the OAI route checks it
 # ahead of the exit-code / parse-error handling, and the schema-mode
@@ -42,7 +60,7 @@
 #   - smarter JSON extraction (fenced-in-prose, brace-balanced) (v0.8.0)
 #   - reconstruction-grade logging on the schema-mode path (v0.8.2)
 #   - single-source __version__ via importlib.metadata (v0.8.3)
-ARG BASE_IMAGE=psyb0t/aicodebox:v0.11.0@sha256:9d5406fe2a336e97a41dd847ef55614386e68d6f3d7b331fa7176781571efd5a
+ARG BASE_IMAGE=psyb0t/aicodebox:v0.13.0
 FROM ${BASE_IMAGE}
 
 # pi-coding-agent — pinned npm install.

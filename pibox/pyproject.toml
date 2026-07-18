@@ -7,7 +7,7 @@ name = "pibox"
 # Canonical version source. The Makefile derives the docker tag from
 # this value; __init__.py reads it at runtime via importlib.metadata.
 # Bump THIS file ONCE per release; everything else follows.
-version = "0.12.0"
+version = "0.13.0"
 description = "pi-coding-agent adapter for aicodebox"
 license = { text = "WTFPL" }
 requires-python = ">=3.12"

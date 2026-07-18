@@ -4,6 +4,58 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.13.0 — 2026-07-18
+
+Track aicodebox v0.13.0 — OpenAI-style client-executed tool calling on
+`/openai/v1/chat/completions`, composable with `response_format` so an
+agentic multi-tool flow can end in a schema-validated structured JSON
+reply.
+
+- **Base image bump.** `Dockerfile` + `Makefile` + `tests/common.sh`
+  `BASE_IMAGE` → `psyb0t/aicodebox:v0.13.0` (was `v0.11.0`). Tag-only —
+  v0.13.0 image not yet on Docker Hub at release time; digest pin
+  pending registry push. This jump folds in two base releases:
+  - **v0.12.0** — client-executed tool calling. A client that sends
+    `tools` gets `tool_calls` back (`finish_reason=tool_calls`), runs
+    the tool in its own environment, and sends the result back —
+    stateless, exactly like OpenAI. `tool_choice`
+    (auto/none/required/specific) is honored. In tool mode the harness's
+    own internal tools default OFF (the machine acts as a pure
+    function-calling model); `x-aicodebox-no-tools: 0` re-enables the
+    hybrid. Also: tools are now disabled by default on the OAI endpoint
+    for non-tool requests too (an OpenAI SDK caller can't know the agent
+    can touch the filesystem/shell) — opt in with
+    `x-aicodebox-no-tools: false` or an `x-aicodebox-tools-allowlist`.
+  - **v0.13.0** — `tools` + `response_format` now COMPOSE in one
+    request (v0.12.0 rejected the pairing with `400`). They describe
+    different turn types: a tool-call turn → `tool_calls` (NOT
+    schema-checked); the final-answer turn (model stops calling tools)
+    → validated against the schema with the same up-to-3-retry
+    self-correction (exhausted → `422`, crash → `500`). `tools` +
+    `stream:true` still → `400`.
+- **PiAdapter unchanged.** Tool calling and schema composition are
+  entirely base-side (system-prompt directive injection + response
+  shaping on the OAI route). pi runs its own internal tools; the base
+  bridges the OpenAI client-executed-tools contract on top. The adapter
+  contract is unaffected.
+- **Tests.** Two new real end-to-end tool-calling tests against the
+  configured GLM model (`$TEST_MODEL` via Z.AI), replacing the old
+  `test_api_oai_reject_tools` (which asserted the removed `400`):
+  - `test_api_oai_tool_calling` — a full two-round-trip: model emits a
+    `get_weather` tool call, the test runs it and feeds the result back,
+    model folds it into a final answer with `finish_reason=stop`.
+  - `test_api_oai_tools_plus_schema` — the composed flow: `tools` +
+    `response_format` in one request, model calls `get_weather` for two
+    cities (tool turn NOT schema-checked), then emits a
+    schema-validated structured JSON final answer with the fed-back
+    values.
+- All 49 tests pass against the new build
+  (`SKIP_BUILD=1 SKIP_BASE_PULL=1 ./test.sh`).
+- Minor bump (v0.12.0 → v0.13.0) — new OAI request/response surface
+  (`tools`, `tool_choice`, composed `tools`+`response_format`);
+  backwards compatible for callers that don't send `tools`, except the
+  OAI endpoint now defaults to tools-off (opt back in per request).
+
 ## v0.12.0 — 2026-07-09
 
 Track aicodebox v0.11.0 and populate the new `provider_error` field —

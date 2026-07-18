@@ -53,7 +53,7 @@ docker run -d --network host \
 
 `PIBOX_API_MODE=1`. FastAPI server on `:8080` (override with `PIBOX_API_MODE_PORT`).
 
-> **Required:** `PIBOX_AVAILABLE_MODELS=<csv>` (e.g. `glm-4.6,claude-sonnet-4-6`). API mode refuses to boot without it — `/v1/models` needs a real list and there's no sensible default (pi can drive any provider's models). Pick the ones your configured `ANTHROPIC_BASE_URL` / provider actually serves.
+> **Required:** `PIBOX_AVAILABLE_MODELS=<csv>` (e.g. `glm-4.6,claude-sonnet-4-6`). API mode refuses to boot without it — `/openai/v1/models` needs a real list and there's no sensible default (pi can drive any provider's models). Pick the ones your configured `ANTHROPIC_BASE_URL` / provider actually serves.
 
 | Method | Path | What it does |
 |--------|------|--------------|
@@ -67,8 +67,8 @@ docker run -d --network host \
 | `GET` | `/files/{path}` | list a sub-directory, or stream a file's bytes |
 | `PUT` | `/files/{path}` | upload — raw request body becomes the file contents; parent dirs auto-created |
 | `DELETE` | `/files/{path}` | delete a file (refuses directories — 400) |
-| `POST` | `/v1/chat/completions` | OpenAI-compatible (streaming + non-streaming) |
-| `GET` | `/v1/models` | model list |
+| `POST` | `/openai/v1/chat/completions` | OpenAI-compatible (streaming + non-streaming; supports `tools` / `tool_choice` client-executed tool calling, composable with `response_format`) |
+| `GET` | `/openai/v1/models` | model list |
 | `POST` | `/mcp` | MCP server (streamable HTTP) — mounted only when `PIBOX_MCP_MODE=1` |
 
 All `/files/*` paths are resolved against the workspace root with traversal checking — `..` segments that escape the root return 400. Same `Authorization: Bearer ...` token gates them as the rest of the API.
@@ -205,7 +205,7 @@ The image is built on top of [aicodebox](https://github.com/psyb0t/docker-aicode
 |-----|---------|--------------|
 | `PIBOX_WORKSPACE` | `/workspace` | Root workspace dir inside the container |
 | `PIBOX_CONTAINER_NAME` | `aicodebox` | Used to scope per-container state files (auth, etc.) |
-| `PIBOX_AVAILABLE_MODELS` | — | **Required for API mode.** CSV list returned by `/v1/models` and shown in the telegram `/model` picker. API mode refuses to boot without it; telegram `/model` picker degrades to a "set this env var" reply. |
+| `PIBOX_AVAILABLE_MODELS` | — | **Required for API mode.** CSV list returned by `/openai/v1/models` and shown in the telegram `/model` picker. API mode refuses to boot without it; telegram `/model` picker degrades to a "set this env var" reply. |
 | `PIBOX_AVAILABLE_EFFORTS` | adapter list | Override the effort/`--thinking` list shown by the telegram `/effort` picker (comma-separated) |
 
 ## Auth

@@ -509,15 +509,182 @@ test_api_oai_chat() {
     assert_contains "$body" "\"finish_reason\":\"stop\"" "oai chat finish_reason"
 }
 
-test_api_oai_reject_tools() {
+test_api_oai_tool_calling() {
     _api_start "" || return 1
-    # tools[] is still rejected — pi runs its own tool surface and the
-    # OAI base doesn't have a mapping to it.
-    local code
-    code=$(_curl_auth -m 5 -o /dev/null -w "%{http_code}" -X POST "$API_URL/openai/v1/chat/completions" \
+    # aicodebox v0.12.0+: OpenAI-style client-executed tool calling. A
+    # client that defines `tools` gets `tool_calls` back
+    # (finish_reason=tool_calls); it runs the tool itself and sends the
+    # result back for the model to fold into a final answer. This is a
+    # REAL round-trip against the configured model ($TEST_MODEL, a GLM
+    # model via Z.AI) — it exercises the full protocol end to end, not a
+    # mock. The tool is defined so the prompt cannot be answered without
+    # calling it (the model has no way to know the weather otherwise).
+    local tools
+    tools='[{"type":"function","function":{"name":"get_weather","description":"Get the current weather for a city.","parameters":{"type":"object","properties":{"city":{"type":"string","description":"City name"}},"required":["city"]}}}]'
+
+    # ── round 1: model should ask to call get_weather ──────────────────
+    local r1
+    r1=$(_curl_auth -m 180 -X POST "$API_URL/openai/v1/chat/completions" \
         -H "Content-Type: application/json" \
-        -d '{"model":"x","messages":[{"role":"user","content":"hi"}],"tools":[{"type":"function","function":{"name":"x"}}]}')
-    assert_eq "$code" "400" "oai tools → 400"
+        -d "{\"model\":\"pi\",\"messages\":[{\"role\":\"user\",\"content\":\"What is the weather in Tokyo right now? You MUST use the get_weather tool to find out — do not guess.\"}],\"tools\":$tools}")
+
+    assert_contains "$r1" "\"object\":\"chat.completion\"" "tool round1 response shape" || return 1
+    assert_contains "$r1" "\"finish_reason\":\"tool_calls\"" "tool round1 finish_reason=tool_calls" || return 1
+
+    # Pull the tool call apart — id, function name, and arguments (a JSON
+    # STRING per the OpenAI wire format).
+    local tc_id tc_name tc_args tc_city
+    tc_id=$(echo "$r1" | jq -r '.choices[0].message.tool_calls[0].id')
+    tc_name=$(echo "$r1" | jq -r '.choices[0].message.tool_calls[0].function.name')
+    tc_args=$(echo "$r1" | jq -r '.choices[0].message.tool_calls[0].function.arguments')
+    assert_eq "$tc_name" "get_weather" "tool round1 called get_weather" || return 1
+    # arguments must itself be valid JSON (a string, not an object) and
+    # carry the city the model extracted.
+    tc_city=$(echo "$tc_args" | jq -r '.city' 2>/dev/null)
+    if [[ "${tc_city,,}" != *"tokyo"* ]]; then
+        log "  FAIL: tool arguments missing city=Tokyo: $tc_args"
+        return 1
+    fi
+    log "  OK: round1 tool_call id=$tc_id get_weather(city=$tc_city)"
+
+    # ── round 2: feed the tool result back, expect a final answer ──────
+    # Resend the full history (stateless, exactly like OpenAI): the
+    # original user turn, the assistant's tool_calls turn, then the tool
+    # result. The model should fold the result into a natural-language
+    # answer and stop.
+    local assistant_tc r2 final
+    assistant_tc=$(echo "$r1" | jq -c '.choices[0].message')
+    r2=$(_curl_auth -m 180 -X POST "$API_URL/openai/v1/chat/completions" \
+        -H "Content-Type: application/json" \
+        -d "$(jq -nc \
+            --argjson tools "$tools" \
+            --argjson assistant "$assistant_tc" \
+            --arg tcid "$tc_id" \
+            '{
+                model: "pi",
+                tools: $tools,
+                messages: [
+                    {role:"user", content:"What is the weather in Tokyo right now? You MUST use the get_weather tool to find out — do not guess."},
+                    $assistant,
+                    {role:"tool", tool_call_id:$tcid, content:"The weather in Tokyo is 15 degrees Celsius and sunny."}
+                ]
+            }')")
+
+    assert_contains "$r2" "\"object\":\"chat.completion\"" "tool round2 response shape" || return 1
+    assert_contains "$r2" "\"finish_reason\":\"stop\"" "tool round2 finish_reason=stop" || return 1
+    final=$(echo "$r2" | jq -r '.choices[0].message.content')
+    # The final answer must reflect the tool result we handed back — the
+    # model can't know "15" / "sunny" unless it actually used the result.
+    if [[ "$final" != *"15"* ]] && [[ "${final,,}" != *"sunny"* ]]; then
+        log "  FAIL: round2 answer didn't use tool result (no 15/sunny): $final"
+        return 1
+    fi
+    log "  OK: round2 final answer folded in tool result: ${final:0:120}"
+}
+
+test_api_oai_tools_plus_schema() {
+    _api_start "" || return 1
+    # aicodebox v0.13.0+: `tools` and `response_format` COMPOSE in one
+    # request — a multi-tool agentic flow ends in a schema-validated
+    # structured JSON reply. This is a REAL round-trip against the
+    # configured GLM model ($TEST_MODEL): the model calls get_weather
+    # TWICE (Tokyo + Paris), we feed both results back, and the FINAL
+    # answer turn must be validated against the response_format schema
+    # (a tool-call turn is NOT schema-checked — only the final answer is).
+    local tools schema
+    tools='[{"type":"function","function":{"name":"get_weather","description":"Get the current weather for a city.","parameters":{"type":"object","properties":{"city":{"type":"string"}},"required":["city"]}}}]'
+    # response_format = OpenAI structured-output json_schema. The final
+    # answer must be an object with per-city temps + a summary string.
+    schema='{"type":"json_schema","json_schema":{"name":"weather_report","schema":{"type":"object","properties":{"tokyo_celsius":{"type":"integer"},"paris_celsius":{"type":"integer"},"summary":{"type":"string"}},"required":["tokyo_celsius","paris_celsius","summary"],"additionalProperties":false}}}'
+
+    local user_msg
+    user_msg="Compare the current weather in Tokyo and Paris. You MUST call the get_weather tool once for EACH city to get real data — do not guess. Once you have both, give the final answer."
+
+    # ── round 1: model asks for tool call(s) ───────────────────────────
+    # tools + response_format together — v0.12.0 would have 400'd this.
+    local r1 fr1
+    r1=$(_curl_auth -m 180 -X POST "$API_URL/openai/v1/chat/completions" \
+        -H "Content-Type: application/json" \
+        -d "$(jq -nc --argjson tools "$tools" --argjson schema "$schema" --arg um "$user_msg" \
+            '{model:"pi", tools:$tools, response_format:$schema, messages:[{role:"user", content:$um}]}')")
+
+    assert_contains "$r1" "\"object\":\"chat.completion\"" "combined round1 response shape" || return 1
+    fr1=$(echo "$r1" | jq -r '.choices[0].finish_reason')
+    # A tool-call turn must NOT be schema-validated (calling a tool isn't
+    # the final answer). It comes back as tool_calls, not a 422/JSON.
+    assert_eq "$fr1" "tool_calls" "combined round1 finish_reason=tool_calls (tool turn not schema-checked)" || return 1
+
+    # Collect the tool results for every tool_call the model emitted (it
+    # may batch both cities in one turn, or ask one at a time — handle
+    # both). Weather answers are canned so we can assert the model used
+    # them in the final structured reply.
+    local tool_msgs assistant_tc
+    assistant_tc=$(echo "$r1" | jq -c '.choices[0].message')
+    tool_msgs=$(echo "$r1" | jq -c '[.choices[0].message.tool_calls[] as $tc |
+        {role:"tool", tool_call_id:$tc.id,
+         content:(($tc.function.arguments | fromjson | .city | ascii_downcase) as $city |
+                  if ($city | test("tokyo")) then "Tokyo: 15 C, sunny"
+                  elif ($city | test("paris")) then "Paris: 9 C, rainy"
+                  else "\($city): 20 C, cloudy" end)}]')
+    local n_calls
+    n_calls=$(echo "$r1" | jq '.choices[0].message.tool_calls | length')
+    log "  OK: round1 emitted $n_calls tool_call(s) with response_format present (no 400)"
+
+    # ── round 2: feed tool results back; expect schema-validated JSON ──
+    local r2 fr2 content
+    r2=$(_curl_auth -m 180 -X POST "$API_URL/openai/v1/chat/completions" \
+        -H "Content-Type: application/json" \
+        -d "$(jq -nc \
+            --argjson tools "$tools" --argjson schema "$schema" \
+            --argjson assistant "$assistant_tc" --argjson toolmsgs "$tool_msgs" \
+            --arg um "$user_msg" \
+            '{model:"pi", tools:$tools, response_format:$schema,
+              messages:([{role:"user", content:$um}, $assistant] + $toolmsgs)}')")
+
+    assert_contains "$r2" "\"object\":\"chat.completion\"" "combined round2 response shape" || return 1
+    fr2=$(echo "$r2" | jq -r '.choices[0].finish_reason')
+
+    # If the model wanted a second city in a separate turn, do one more
+    # round so the test is robust to one-tool-at-a-time models.
+    if [[ "$fr2" == "tool_calls" ]]; then
+        local assistant2 toolmsgs2
+        assistant2=$(echo "$r2" | jq -c '.choices[0].message')
+        toolmsgs2=$(echo "$r2" | jq -c '[.choices[0].message.tool_calls[] as $tc |
+            {role:"tool", tool_call_id:$tc.id,
+             content:(($tc.function.arguments | fromjson | .city | ascii_downcase) as $city |
+                      if ($city | test("tokyo")) then "Tokyo: 15 C, sunny"
+                      elif ($city | test("paris")) then "Paris: 9 C, rainy"
+                      else "\($city): 20 C, cloudy" end)}]')
+        r2=$(_curl_auth -m 180 -X POST "$API_URL/openai/v1/chat/completions" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -nc \
+                --argjson tools "$tools" --argjson schema "$schema" \
+                --argjson a1 "$assistant_tc" --argjson t1 "$tool_msgs" \
+                --argjson a2 "$assistant2" --argjson t2 "$toolmsgs2" \
+                --arg um "$user_msg" \
+                '{model:"pi", tools:$tools, response_format:$schema,
+                  messages:([{role:"user", content:$um}, $a1] + $t1 + [$a2] + $t2)}')")
+        fr2=$(echo "$r2" | jq -r '.choices[0].finish_reason')
+    fi
+
+    assert_eq "$fr2" "stop" "combined final finish_reason=stop" || return 1
+
+    # The final answer must be canonical schema-matching JSON — content
+    # starts with '{' and carries the required fields with the temps we
+    # fed via the tool results (15 for Tokyo, 9 for Paris).
+    content=$(echo "$r2" | jq -r '.choices[0].message.content')
+    if [[ "${content:0:1}" != "{" ]]; then
+        log "  FAIL: final content not canonical JSON: ${content:0:200}"
+        return 1
+    fi
+    local tokyo paris summary
+    tokyo=$(echo "$content" | jq -r '.tokyo_celsius' 2>/dev/null)
+    paris=$(echo "$content" | jq -r '.paris_celsius' 2>/dev/null)
+    summary=$(echo "$content" | jq -r '.summary' 2>/dev/null)
+    assert_eq "$tokyo" "15" "final JSON tokyo_celsius=15 (from tool result)" || return 1
+    assert_eq "$paris" "9" "final JSON paris_celsius=9 (from tool result)" || return 1
+    assert_not_empty "$summary" "final JSON has summary string" || return 1
+    log "  OK: combined tools+schema final answer schema-valid: $content"
 }
 
 test_api_oai_response_format_json_object() {
@@ -858,7 +1025,8 @@ ALL_TESTS+=(
     test_api_files_auth
     test_api_oai_models
     test_api_oai_chat
-    test_api_oai_reject_tools
+    test_api_oai_tool_calling
+    test_api_oai_tools_plus_schema
     test_api_oai_response_format_json_object
     test_api_oai_response_format_json_schema
     test_api_oai_header_json_schema
