@@ -799,21 +799,32 @@ test_api_oai_header_json_schema() {
     log "  OK: schema-header produced canonical content .word=$word + aicodebox_attempts"
 }
 
-test_api_oai_stream_schema_rejected() {
+test_api_oai_stream_schema_buffers_to_sse() {
     _api_start "" || return 1
-    # aicodebox v0.8.0 rules: schema validation needs the COMPLETE response
-    # to validate against. Mid-stream parse failure has no clean recovery
-    # path over SSE, so the combination is rejected at the route with 400.
+    # aicodebox v0.14.0+: schema validation needs the COMPLETE response to
+    # validate against, so it can't stream token-by-token — but stream:true
+    # no longer 400s (that was the v0.8.0-v0.13.0 behavior). The base now
+    # computes the full schema-validated answer non-streamed, then replays
+    # it as a single-shot SSE stream: an opening role chunk, one content
+    # delta carrying the canonical JSON, the finish chunk, and [DONE].
     local tmp=/tmp/_stream_schema_$$
     local code body
-    code=$(_curl_auth -m 10 -o "$tmp" -w "%{http_code}" -X POST "$API_URL/openai/v1/chat/completions" \
+    code=$(_curl_auth -m 120 -o "$tmp" -w "%{http_code}" -X POST "$API_URL/openai/v1/chat/completions" \
         -H "Content-Type: application/json" \
-        -H 'x-aicodebox-json-schema: {"type":"object"}' \
-        -d '{"model":"pi","messages":[{"role":"user","content":"hi"}],"stream":true}')
+        -H 'x-aicodebox-json-schema: {"type":"object","properties":{"word":{"type":"string"}},"required":["word"]}' \
+        -d '{"model":"pi","messages":[{"role":"user","content":"Produce a JSON object where the word field is exactly HELLO."}],"stream":true}')
     body=$(cat "$tmp" 2>/dev/null); rm -f "$tmp"
-    assert_eq "$code" "400" "stream:true + schema header → 400" || return 1
-    # Error detail should reference the conflict so the operator knows why.
-    assert_contains "$body" "stream" "rejection detail mentions stream"
+    assert_eq "$code" "200" "stream:true + schema → 200 (buffered SSE, not 400)" || return 1
+    assert_contains "$body" "chat.completion.chunk" "SSE body carries chat.completion.chunk objects" || return 1
+    assert_contains "$body" "data: [DONE]" "SSE stream terminates with [DONE]" || return 1
+    assert_contains "$body" "\"finish_reason\": \"stop\"" "SSE finish chunk has finish_reason=stop" || return 1
+    # The single content delta must carry the canonical schema JSON — HELLO
+    # came from the live model, not a placeholder.
+    if [[ "${body^^}" != *"HELLO"* ]]; then
+        log "  FAIL: SSE content delta missing schema-matching HELLO: ${body:0:300}"
+        return 1
+    fi
+    log "  OK: stream:true + schema buffered to single-shot SSE with schema JSON"
 }
 
 test_api_oai_header_json_schema_invalid() {
@@ -1032,7 +1043,7 @@ ALL_TESTS+=(
     test_api_oai_header_json_schema
     test_api_oai_header_json_schema_invalid
     test_api_oai_header_extra_args
-    test_api_oai_stream_schema_rejected
+    test_api_oai_stream_schema_buffers_to_sse
     test_api_mcp_handshake
     test_api_mcp_auth
     test_api_status

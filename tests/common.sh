@@ -9,7 +9,7 @@ IMAGE="pibox:local"
 # in parallel, so the suite tests pibox on top of whatever the released
 # base ships. Override with PIBOX_BASE_IMAGE if you need to test against
 # a local fork of the base.
-BASE_IMAGE="${PIBOX_BASE_IMAGE:-psyb0t/aicodebox:v0.13.0}"
+BASE_IMAGE="${PIBOX_BASE_IMAGE:-psyb0t/aicodebox:v0.14.0}"
 CONTAINER_PREFIX="pibox-test"
 WORKDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 EXTRA_CONTAINERS=()

@@ -4,6 +4,48 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.14.0 — 2026-07-20
+
+Track aicodebox v0.14.0 — `stream:true` for tool-calling and schema modes
+on `/openai/v1/chat/completions` no longer returns `400`; it now serves
+as **buffered SSE**.
+
+- **Base image bump.** `Dockerfile` + `Makefile` + `tests/common.sh`
+  `BASE_IMAGE` → `psyb0t/aicodebox:v0.14.0` (was `v0.13.0`). Tag-only —
+  v0.14.0 image not yet on Docker Hub at release time; digest pin
+  pending registry push.
+- **Behavior change (via the base).** A tool call or a schema-validated
+  answer only exists once the full response is computed, so it can't
+  stream token-by-token. Previously `stream:true` combined with `tools`
+  or `response_format` returned `400`. Now the base computes the whole
+  answer non-streamed and replays it as a single-shot SSE stream
+  (`text/event-stream`): an opening `{"role":"assistant"}` chunk, one
+  `content` delta (schema/text) or one `tool_calls` delta (carrying the
+  `index` clients need to reconstruct them), the finish chunk
+  (`finish_reason:"stop"` or `"tool_calls"`), then `data: [DONE]`.
+  **Breaking** for callers that special-cased the old `400` — the
+  client's streaming SDK is satisfied, it just isn't token-incremental
+  for these two modes. Plain chat still streams incrementally as
+  before. Genuine failures still surface as HTTP errors (schema
+  exhausted → `422`, agent crash → `500`) rather than a stream.
+- **PiAdapter unchanged.** The buffered-SSE replay is entirely base-side
+  (the OAI route gates the existing incremental streaming path to plain
+  chat only, and replays finished tool/schema answers as SSE chunks
+  instead). The adapter contract is unaffected.
+- **Tests.** `test_api_oai_stream_schema_rejected` (which asserted the
+  removed `400`) is replaced by
+  `test_api_oai_stream_schema_buffers_to_sse` — a real round-trip
+  against the configured GLM model that sends `stream:true` +
+  `x-aicodebox-json-schema`, then asserts `200`, a
+  `text/event-stream` body carrying `chat.completion.chunk` objects,
+  `finish_reason:"stop"`, `data: [DONE]`, and that the single content
+  delta carries the schema-matching answer.
+- All 49 tests pass against the new build
+  (`SKIP_BUILD=1 SKIP_BASE_PULL=1 ./test.sh`).
+- Minor bump (v0.13.0 → v0.14.0) — the OAI wire behavior for
+  `stream:true` + `tools`/`response_format` changed from `400` to a
+  `200` SSE stream.
+
 ## v0.13.0 — 2026-07-18
 
 Track aicodebox v0.13.0 — OpenAI-style client-executed tool calling on

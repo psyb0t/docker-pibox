@@ -4,9 +4,16 @@
 #   docker build -t aicodebox-base:local ../docker-aicodebox/
 #   docker build --build-arg BASE_IMAGE=aicodebox-base:local -t pibox:local .
 #
-# Base pinned to aicodebox v0.13.0 (tag-only — built locally, not yet on
-# the registry; digest pin will be added once it's pushed). v0.13.0 lets
-# `tools` and `response_format` COMPOSE in one request on
+# Base pinned to aicodebox v0.14.0 (tag-only — built locally, not yet on
+# the registry; digest pin will be added once it's pushed). v0.14.0
+# serves `stream:true` for tool-calling and schema modes as buffered SSE
+# instead of a 400 — the base computes the full non-streamed answer then
+# replays it as a single-shot SSE stream (opening role chunk → one
+# content/tool_calls delta → finish chunk → [DONE]). Plain chat still
+# streams incrementally as before; only tool/schema modes buffer.
+# Genuine failures still surface as HTTP errors (schema exhausted → 422,
+# agent crash → 500) rather than a stream.
+# v0.13.0 lets `tools` and `response_format` COMPOSE in one request on
 # /openai/v1/chat/completions — an agentic tool-calling flow can now end
 # in a schema-validated structured JSON reply (v0.12.0 rejected that
 # pairing with a 400). They describe different turn types: a tool-call
@@ -14,8 +21,7 @@
 # final-answer turn (model stops calling tools) → validated against the
 # schema with the same up-to-3-retry self-correction (exhausted → 422,
 # crash → 500). The tools directive carries the final-answer schema so
-# the model is told both exits coherently. tools + stream:true still →
-# 400.
+# the model is told both exits coherently.
 # v0.12.0 adds OpenAI-style client-executed tool calling on
 # /openai/v1/chat/completions: a client that sends `tools` gets
 # `tool_calls` back (finish_reason=tool_calls), runs the tool in its own
@@ -60,7 +66,7 @@
 #   - smarter JSON extraction (fenced-in-prose, brace-balanced) (v0.8.0)
 #   - reconstruction-grade logging on the schema-mode path (v0.8.2)
 #   - single-source __version__ via importlib.metadata (v0.8.3)
-ARG BASE_IMAGE=psyb0t/aicodebox:v0.13.0
+ARG BASE_IMAGE=psyb0t/aicodebox:v0.14.0
 FROM ${BASE_IMAGE}
 
 # pi-coding-agent — pinned npm install.
