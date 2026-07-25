@@ -1,0 +1,53 @@
+{
+  "name": "@psyb0t/pibox",
+  "version": "0.0.0",
+  "mcpName": "io.github.psyb0t/pibox",
+  "description": "Connect an OpenClaw/MCP agent to a self-hosted pibox (pi-coding-agent) server over MCP.",
+  "type": "module",
+  "bin": {
+    "pibox-mcp": "bin/cli.js"
+  },
+  "files": [
+    "bin",
+    "openclaw.plugin.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "license": "MIT",
+  "author": "psyb0t",
+  "homepage": "https://github.com/psyb0t/docker-pibox",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/psyb0t/docker-pibox.git"
+  },
+  "bugs": {
+    "url": "https://github.com/psyb0t/docker-pibox/issues"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "pibox",
+    "pi-coding-agent",
+    "coding-agent",
+    "openclaw",
+    "ai-agent"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "mcp-remote": "0.1.38"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "openclaw": {
+    "extensions": ["./bin/cli.js"],
+    "compat": {
+      "pluginApi": ">=2026.3.24-beta.2"
+    },
+    "build": {
+      "openclawVersion": "2026.3.24-beta.2"
+    }
+  }
+}

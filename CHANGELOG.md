@@ -4,6 +4,15 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.15.0 — 2026-07-25
+
+ClawHub skill + plugin, and README/Makefile corrections.
+
+- **New `pibox` agent skill** (`.agents/skills/pibox/`) documenting every mode the box exposes — interactive shell, one-shot exec, the REST API, the OpenAI-compatible `/openai/v1/chat/completions` endpoint, the streamable-HTTP MCP server, the Telegram bot, and the cron scheduler.
+- **New `@psyb0t/pibox` code plugin** (`.agents/plugins/pibox/`) — a stdio↔HTTP MCP bridge (`mcp-remote`) so an OpenClaw/MCP agent can drive a running box's `/mcp` endpoint. MIT-licensed.
+- **CI publishes both to ClawHub** on tag pushes via the reusable `clawhub-publish.yml` (validate → publish, skills + plugins).
+- **README corrected**: `POST /run` takes `async` / `fireAndForget` in the body (there is no `/run/async`); async polling is `GET /run/result?runId=<id>`; cancel is `DELETE /run/{id}`; `make build` now pulls the published `psyb0t/aicodebox` base (`VERSION` from `pibox/pyproject.toml`; `SKIP_BASE_PULL=1` / `BASE_IMAGE=…` to override).
+
 ## v0.14.0 — 2026-07-20
 
 Track aicodebox v0.14.0 — `stream:true` for tool-calling and schema modes

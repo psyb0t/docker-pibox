@@ -59,10 +59,9 @@ docker run -d --network host \
 |--------|------|--------------|
 | `GET` | `/healthz` | liveness |
 | `GET` | `/status` | in-flight runs |
-| `POST` | `/run` | sync agent run → `{text, exit_code, ...}` |
-| `POST` | `/run/async` | fire and get a job id back |
-| `GET` | `/run/{id}` | poll async job |
-| `POST` | `/run/{id}/cancel` | kill in-flight run |
+| `POST` | `/run` | agent run → `{text, exit_code, ...}`; body `async`/`fireAndForget` fires and returns a job id instead of blocking |
+| `GET` | `/run/result?runId=<id>` | poll async job |
+| `DELETE` | `/run/{id}` | kill in-flight run |
 | `GET` | `/files` | list the workspace root (`{entries: [{name, type, size?}, ...]}`) |
 | `GET` | `/files/{path}` | list a sub-directory, or stream a file's bytes |
 | `PUT` | `/files/{path}` | upload — raw request body becomes the file contents; parent dirs auto-created |
@@ -225,15 +224,14 @@ pi's thinking levels (`--thinking`): `off`, `minimal`, `low`, `medium`, `high`, 
 
 ## Development
 
-Requires `psyb0t/docker-aicodebox` checked out next to this repo (`../docker-aicodebox`).
-
 ```bash
-make help        # list targets
-make build-base  # build aicodebox-base from ../docker-aicodebox
-make build       # build pibox:local on top of it
-make test        # run the full e2e suite (needs .env.test)
-make clean       # remove built images
+make help   # list targets
+make build  # pull the published aicodebox base, build + tag psyb0t/pibox:v<VERSION> and :latest
+make test   # run the full e2e suite (needs .env.test)
+make clean  # remove built images
 ```
+
+`VERSION` is read from `pibox/pyproject.toml`. `make build` pulls the published `psyb0t/aicodebox` base pinned in the Dockerfile; set `SKIP_BASE_PULL=1` to use a locally-built base instead (e.g. from a sibling `../docker-aicodebox` checkout), or override with `make build BASE_IMAGE=...`.
 
 ## Tests
 
