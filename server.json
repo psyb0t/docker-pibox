@@ -1,0 +1,9 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.psyb0t/pibox",
+  "title": "Pibox",
+  "description": "Self-hosted MCP server: pi-coding-agent tools (run_prompt, file ops) over streamable HTTP.",
+  "version": "0.0.0",
+  "repository": { "url": "https://github.com/psyb0t/docker-pibox", "source": "github" },
+  "packages": [ { "registryType": "oci", "identifier": "docker.io/psyb0t/pibox:latest", "runtimeHint": "docker", "transport": { "type": "streamable-http", "url": "http://localhost:8081/" } } ]
+}

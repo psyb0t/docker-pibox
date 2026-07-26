@@ -69,6 +69,9 @@
 ARG BASE_IMAGE=psyb0t/aicodebox:v0.14.0
 FROM ${BASE_IMAGE}
 
+# MCP Registry ownership label.
+LABEL io.modelcontextprotocol.server.name="io.github.psyb0t/pibox"
+
 # pi-coding-agent — pinned npm install.
 ARG PI_VERSION=0.75.3
 RUN npm install -g @earendil-works/pi-coding-agent@${PI_VERSION}
