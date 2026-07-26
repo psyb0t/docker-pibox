@@ -119,7 +119,7 @@ The image is built on [aicodebox](https://github.com/psyb0t/docker-aicodebox); t
 | Var | Default | What it does |
 |-----|---------|---------------|
 | `PIBOX_API_MODE_PORT` | `8080` | Port the API server binds to |
-| `PIBOX_API_MODE_TOKEN` | empty | Bearer token for the REST + OpenAI-compatible surface. Empty = no auth |
+| `PIBOX_API_MODE_TOKEN` | empty | Bearer token for the REST + OpenAI-compatible surface. Empty = no auth — see [Security & safety](../SKILL.md#security--safety) |
 
 ### Telegram mode config
 
@@ -141,7 +141,7 @@ The image is built on [aicodebox](https://github.com/psyb0t/docker-aicodebox); t
 | Var | Default | What it does |
 |-----|---------|---------------|
 | `PIBOX_MCP_MODE_PORT` | `8081` | Port the sidecar MCP server binds to (ignored when mounted inside API mode) |
-| `PIBOX_MCP_MODE_TOKEN` | empty | Bearer token for MCP. Empty = no auth. No fallback to `PIBOX_API_MODE_TOKEN` |
+| `PIBOX_MCP_MODE_TOKEN` | empty | Bearer token for MCP. Empty = no auth — see [Security & safety](../SKILL.md#security--safety). No fallback to `PIBOX_API_MODE_TOKEN` |
 
 ### Workspace & runtime
 

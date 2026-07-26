@@ -15,6 +15,12 @@ You talk to pibox, pibox talks to pi, pi talks to whatever Anthropic-compatible 
 
 For installation and configuration, see [references/setup.md](references/setup.md).
 
+## Security & safety
+
+- **No auth when `PIBOX_API_MODE_TOKEN` is unset.** With it empty the REST/OpenAI-compatible API surface is UNAUTHENTICATED — anyone who can reach it gets full agent-execution and workspace file-read/write/delete access. NEVER expose such an instance on a network or to untrusted agents; set the token and bind to loopback / behind an authenticating proxy.
+- **No auth when `PIBOX_MCP_MODE_TOKEN` is unset.** Same story for the MCP surface (`/mcp` or the sidecar) — empty token means unauthenticated `run_prompt`/file-tool access, and it does not fall back to `PIBOX_API_MODE_TOKEN`. Set it explicitly.
+- **Destructive & irreversible.** `DELETE /run/{id}`, `DELETE /files/{path}`, and the MCP `delete_file` tool remove state with no undo (canceled runs can't be resumed; deleted files are gone). An agent must NEVER call these unless the user explicitly asked for that exact action; confirm the specific target first, scope it to the current task, and never enumerate-then-bulk-delete. On a shared/multi-tenant instance a deletion can destroy another caller's in-flight run or workspace file — treat these routes as admin-only.
+
 ## When To Use
 
 - Drive pi-coding-agent from a script/service instead of an interactive terminal (`/run`, `/openai/v1/chat/completions`, or MCP tools).
@@ -95,6 +101,10 @@ docker run -d --network host \
 
 All `/files/*` paths resolve against the workspace root with traversal checking — `..` segments that escape the root return 400. Every route except `/healthz` is gated by `Authorization: Bearer <PIBOX_API_MODE_TOKEN>` when that var is set; empty/unset token = no auth.
 
+**No auth when `PIBOX_API_MODE_TOKEN` is unset.** With it empty the API is UNAUTHENTICATED — anyone who can reach it gets run-the-agent and workspace file-read/write/delete access. NEVER expose such an instance on a network or to untrusted agents; set the token and bind to loopback / behind an authenticating proxy.
+
+**Destructive & irreversible.** `DELETE /run/{id}` kills the in-flight subprocess with no undo, and `DELETE /files/{path}` deletes a workspace file with no undo. An agent must NEVER call either unless the user explicitly asked for that exact action; confirm the specific target first; scope it to the current task; never enumerate-then-bulk-delete. On a shared/multi-tenant instance this can disrupt or destroy another caller's run or data — treat these routes as admin-only.
+
 ```bash
 # sync run
 curl -s http://localhost:8080/run \
@@ -174,7 +184,11 @@ curl -s http://localhost:8080/mcp \
 
 `run_prompt(prompt, workspace?, model?, system_prompt?, append_system_prompt?, no_continue=true, resume?, thinking?, json_schema?)` invokes the agent and returns its text. `list_files`/`read_file`/`write_file`/`delete_file` operate on workspace-relative paths with the same traversal guard as the REST `/files` endpoints.
 
+**Destructive & irreversible.** `delete_file` removes a workspace file with no undo. An agent must NEVER call it unless the user explicitly asked for that exact action; confirm the specific target first; scope it to the current task; never enumerate-then-bulk-delete. On a shared/multi-tenant instance this can destroy another caller's workspace data — treat it as admin-only.
+
 Auth: `PIBOX_MCP_MODE_TOKEN=<token>` — bearer via `Authorization: Bearer …`, or `?apiToken=…` query param for clients that can't set headers. Empty = no auth. **No fallback to `PIBOX_API_MODE_TOKEN`.**
+
+**No auth when `PIBOX_MCP_MODE_TOKEN` is unset.** With it empty the MCP surface is UNAUTHENTICATED — anyone who can reach it gets `run_prompt` (arbitrary agent execution) and workspace file read/write/delete access. NEVER expose such an instance on a network or to untrusted agents; set the token and bind to loopback / behind an authenticating proxy.
 
 ## Telegram bot mode
 
@@ -237,7 +251,7 @@ Z.AI's GLM models are a fast/cheap default: `ANTHROPIC_BASE_URL=https://api.z.ai
 
 pi's thinking levels (`--thinking`): `off`, `minimal`, `low`, `medium`, `high`, `xhigh`. Exposed as `/effort` in Telegram mode and `thinking` in API/OAI requests.
 
-**Surface-level auth** (separate from the LLM upstream) is per-mode: `PIBOX_API_MODE_TOKEN` gates the REST + OAI routes, `PIBOX_MCP_MODE_TOKEN` gates MCP (no fallback between the two), Telegram gates by bot-token possession + chat/user allowlist, cron and interactive/exec modes have no surface auth (container-boundary trust).
+**Surface-level auth** (separate from the LLM upstream) is per-mode: `PIBOX_API_MODE_TOKEN` gates the REST + OAI routes, `PIBOX_MCP_MODE_TOKEN` gates MCP (no fallback between the two), Telegram gates by bot-token possession + chat/user allowlist, cron and interactive/exec modes have no surface auth (container-boundary trust). Both `PIBOX_API_MODE_TOKEN` and `PIBOX_MCP_MODE_TOKEN` default to empty, which means no auth — see [Security & safety](#security--safety) above before exposing either surface beyond localhost.
 
 ## Typical Workflows
 

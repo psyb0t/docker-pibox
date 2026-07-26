@@ -4,6 +4,13 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.15.1 — 2026-07-26
+
+Skill docs hardening — no behavior change.
+
+- **`pibox` skill docs hardened** (`.agents/skills/pibox/SKILL.md`, `references/setup.md`): added a `Security & safety` section plus inline warnings at every relevant spot — explicit "empty token = unauthenticated" callouts for `PIBOX_API_MODE_TOKEN` and `PIBOX_MCP_MODE_TOKEN`, and destructive-operation guardrails on `DELETE /run/{id}`, `DELETE /files/{path}`, and the MCP `delete_file` tool (agent must never call these without an explicit user request for that exact action, confirm target, no bulk-delete, admin-only on shared instances).
+- Docs only — no code, wire, or default-value changes.
+
 ## v0.15.0 — 2026-07-25
 
 ClawHub skill + plugin, and README/Makefile corrections.
