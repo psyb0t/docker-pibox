@@ -4,6 +4,12 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.15.2 — 2026-07-26
+
+Third-party license notices. Documentation only, no behavior change.
+
+- Added `THIRD_PARTY.md` + `LICENSES/` documenting the image-baked pi coding agent (`@earendil-works/pi-coding-agent`, MIT). The project's own code stays WTFPL.
+
 ## v0.15.1 — 2026-07-26
 
 Skill docs hardening — no behavior change.
