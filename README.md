@@ -1,7 +1,8 @@
 # docker-pibox
 
+[![version](https://raw.githubusercontent.com/psyb0t/docker-pibox/badges/version.svg)](https://github.com/psyb0t/docker-pibox/releases)
+[![license](https://raw.githubusercontent.com/psyb0t/docker-pibox/badges/license.svg)](LICENSE)
 [![Docker Pulls](https://img.shields.io/docker/pulls/psyb0t/pibox?style=flat-square)](https://hub.docker.com/r/psyb0t/pibox)
-[![License: WTFPL](https://img.shields.io/badge/License-WTFPL-brightgreen.svg?style=flat-square)](http://www.wtfpl.net/)
 
 [pi-coding-agent](https://github.com/earendil-works/pi-mono/tree/main/packages/coding-agent) inside an [aicodebox](https://github.com/psyb0t/docker-aicodebox) container. One image, five ways in: interactive shell, one-shot API, OpenAI-compatible endpoint, MCP server, Telegram bot, and a cron scheduler that fires pi on whatever schedule you want.
 
