@@ -1,0 +1,37 @@
+{
+  "name": "pibox",
+  "description": "pi-coding-agent running in a container — interactive shell, one-shot exec, an HTTP REST API, an OpenAI-compatible chat endpoint, an MCP server, a Telegram bot, and a cron scheduler, all on one image.",
+  "author": { "name": "psyb0t", "url": "https://github.com/psyb0t" },
+  "homepage": "https://github.com/psyb0t/docker-pibox",
+  "license": "WTFPL",
+  "keywords": [
+    "pi-coding-agent",
+    "coding-agent",
+    "mcp",
+    "rest-api",
+    "openai-compatible",
+    "telegram-bot",
+    "cron",
+    "docker"
+  ],
+  "userConfig": {
+    "pibox_url": {
+      "type": "string",
+      "title": "pibox URL",
+      "description": "Base URL of your running pibox server, e.g. http://localhost:8080",
+      "required": true
+    },
+    "api_token": {
+      "type": "string",
+      "title": "pibox API token",
+      "description": "Bearer token for the REST / OpenAI-compatible API surface (PIBOX_API_MODE_TOKEN). Leave empty if the server was started without auth.",
+      "sensitive": true
+    },
+    "mcp_token": {
+      "type": "string",
+      "title": "pibox MCP token",
+      "description": "Bearer token for the MCP surface (PIBOX_MCP_MODE_TOKEN) — separate from the API token, no fallback between the two.",
+      "sensitive": true
+    }
+  }
+}

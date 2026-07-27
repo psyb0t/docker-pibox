@@ -4,6 +4,19 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.15.6 — 2026-07-27
+
+Agent-integration manifests. Documentation only, no behavior change.
+
+- Added `.agents/.claude-plugin/plugin.json` — makes the existing `pibox` skill installable
+  natively as a Claude Code plugin via `claude plugin marketplace add psyb0t/agents` +
+  `claude plugin install pibox@psyb0t`. Declares `userConfig` for the pibox URL and the
+  API/MCP bearer tokens so Claude Code prompts for them instead of requiring exported env vars.
+- Added `.agents/.codex-plugin/plugin.json` — the matching Codex manifest (`codex plugin
+  marketplace add psyb0t/agents`), pointing at the same `.agents/skills/`.
+- Added a `## Agent integrations` section to the README (with Table of Contents entry) documenting
+  the Claude Code, Codex, and OpenClaw (skill + MCP-bridge plugin) install commands in one place.
+
 ## v0.15.5 — 2026-07-27
 
 - Added a GitHub Actions CI status badge to the README.

@@ -18,6 +18,7 @@ You talk to pibox. pibox talks to pi. pi talks to whatever LLM you point it at. 
   - [Cron mode](#cron-mode)
 - [Configuration](#configuration)
 - [Auth](#auth)
+- [Agent integrations](#agent-integrations)
 - [Development](#development)
 - [Tests](#tests)
 - [License](#license)
@@ -223,6 +224,48 @@ pi speaks the Anthropic wire protocol. Point it at any Anthropic-compatible endp
 Z.AI's GLM models are fast and cheap for most tasks — `ANTHROPIC_BASE_URL=https://api.z.ai/api/anthropic` + `ANTHROPIC_MODEL=glm-4.6` is the recommended default.
 
 pi's thinking levels (`--thinking`): `off`, `minimal`, `low`, `medium`, `high`, `xhigh`. Exposed as the `/effort` command in telegram mode and as `thinking` in API requests.
+
+## Agent integrations
+
+The [skill](.agents/skills/pibox) works in any agent that reads `.agents/skills/`, and
+installs natively in the clients below.
+
+### Claude Code
+
+```bash
+claude plugin marketplace add psyb0t/agents
+claude plugin install pibox@psyb0t
+```
+
+Claude Code prompts for the pibox URL and, if auth is enabled, the API and MCP tokens —
+sensitive values are stored in your OS keychain.
+
+### Codex
+
+```bash
+codex plugin marketplace add psyb0t/agents
+```
+
+Codex also picks the skill up automatically in any repo containing `.agents/skills/`, and
+invokes it as `$pibox`.
+
+### OpenClaw
+
+The skill is published to ClawHub on every release:
+
+```bash
+openclaw skills install @psyb0t/pibox
+```
+
+For MCP clients that speak local stdio, the [`@psyb0t/pibox`](.agents/plugins/pibox) plugin
+bridges to the service's `/mcp` endpoint:
+
+```bash
+openclaw plugins install clawhub:@psyb0t/pibox
+```
+
+Then set `PIBOX_URL` (and `PIBOX_MCP_MODE_TOKEN` if the server was started with MCP auth
+enabled).
 
 ## Development
 
