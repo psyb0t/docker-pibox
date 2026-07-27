@@ -4,6 +4,17 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.15.7 — 2026-07-27
+
+Codex install command was missing from the README. Documentation only, no behavior change.
+
+- The Codex subsection under `## Agent integrations` only told the reader to run `codex
+  plugin marketplace add psyb0t/agents` and stopped — it never showed the actual install
+  command. Added the missing line: `codex plugin add pibox@psyb0t`.
+- Clarified the invocation prose to distinguish the two ways Codex picks up the skill:
+  installed via the marketplace it invokes as `$pibox:pibox`; picked up automatically with
+  no install from a repo's own `.agents/skills/` it invokes as plain `$pibox`.
+
 ## v0.15.6 — 2026-07-27
 
 Agent-integration manifests. Documentation only, no behavior change.
