@@ -4,6 +4,21 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.15.8 — 2026-08-01
+
+CI plumbing only. No code in this repo changed — every commit in this release
+touches `.github/workflows/`.
+
+- The pipeline was split: building and publishing stay in `pipeline.yml`, and
+  everything that leaves the host now lives beside it in `mirror-and-archive.yml`.
+- The repo is mirrored to Codeberg as well as GitLab.
+- It is archived to the Wayback Machine, Software Heritage and archive.org.
+- Issues opened on either mirror are copied back to GitHub every six hours, and
+  closed here when the original closes.
+- Pull requests are switched off on the mirrors — they are force-pushed from
+  GitHub, so anything merged there would be destroyed by the next sync. Issues
+  and forking stay enabled.
+
 ## v0.15.7 — 2026-07-27
 
 Codex install command was missing from the README. Documentation only, no behavior change.
