@@ -1,6 +1,6 @@
 {
   "name": "pibox",
-  "version": "0.15.7",
+  "version": "0.15.9",
   "description": "pi-coding-agent running in a container — interactive shell, one-shot exec, an HTTP REST API, an OpenAI-compatible chat endpoint, an MCP server, a Telegram bot, and a cron scheduler, all on one image.",
   "author": { "name": "psyb0t", "url": "https://github.com/psyb0t" },
   "homepage": "https://github.com/psyb0t/docker-pibox",

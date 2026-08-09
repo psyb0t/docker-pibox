@@ -5,7 +5,7 @@
 [![license](https://raw.githubusercontent.com/psyb0t/docker-pibox/badges/license.svg)](LICENSE)
 [![Docker Pulls](https://img.shields.io/docker/pulls/psyb0t/pibox?style=flat-square)](https://hub.docker.com/r/psyb0t/pibox)
 
-[pi-coding-agent](https://github.com/earendil-works/pi-mono/tree/main/packages/coding-agent) inside an [aicodebox](https://github.com/psyb0t/docker-aicodebox) container. One image, five ways in: interactive shell, one-shot API, OpenAI-compatible endpoint, MCP server, Telegram bot, and a cron scheduler that fires pi on whatever schedule you want.
+[pi-coding-agent](https://github.com/earendil-works/pi-mono/tree/main/packages/coding-agent) inside an [aicodebox](https://github.com/psyb0t/docker-aicodebox) container. One image, several ways in: interactive shell, one-shot prompt, HTTP API (with an OpenAI-compatible endpoint), MCP server, Telegram bot, and a cron scheduler that fires pi on whatever schedule you want.
 
 You talk to pibox. pibox talks to pi. pi talks to whatever LLM you point it at. Nobody cares about the middle.
 
@@ -13,9 +13,10 @@ You talk to pibox. pibox talks to pi. pi talks to whatever LLM you point it at. 
 
 - [Quick start](#quick-start)
 - [Modes](#modes)
-  - [API mode](#api-mode)
-  - [Telegram mode](#telegram-mode)
-  - [Cron mode](#cron-mode)
+  - [API mode](docs/modes/api.md)
+  - [Telegram mode](docs/modes/telegram.md)
+  - [Cron mode](docs/modes/cron.md)
+  - [MCP mode](docs/modes/mcp.md)
 - [Configuration](#configuration)
 - [Auth](#auth)
 - [Agent integrations](#agent-integrations)
@@ -52,110 +53,48 @@ docker run -d --network host \
 
 **MCP mode** (`PIBOX_MCP_MODE=1`) is independent — it coexists with whatever foreground mode is running. In API mode it's mounted at `/mcp` on the API port; in other modes it runs as a sidecar uvicorn on its own port.
 
-### API mode
+Each mode has its own page with full setup, env vars, and examples.
 
-`PIBOX_API_MODE=1`. FastAPI server on `:8080` (override with `PIBOX_API_MODE_PORT`).
+### [API Mode →](docs/modes/api.md)
 
-> **Required:** `PIBOX_AVAILABLE_MODELS=<csv>` (e.g. `glm-4.6,claude-sonnet-4-6`). API mode refuses to boot without it — `/openai/v1/models` needs a real list and there's no sensible default (pi can drive any provider's models). Pick the ones your configured `ANTHROPIC_BASE_URL` / provider actually serves.
-
-| Method | Path | What it does |
-|--------|------|--------------|
-| `GET` | `/healthz` | liveness |
-| `GET` | `/status` | in-flight runs |
-| `POST` | `/run` | agent run → `{text, exit_code, ...}`; body `async`/`fireAndForget` fires and returns a job id instead of blocking |
-| `GET` | `/run/result?runId=<id>` | poll async job |
-| `DELETE` | `/run/{id}` | kill in-flight run |
-| `GET` | `/files` | list the workspace root (`{entries: [{name, type, size?}, ...]}`) |
-| `GET` | `/files/{path}` | list a sub-directory, or stream a file's bytes |
-| `PUT` | `/files/{path}` | upload — raw request body becomes the file contents; parent dirs auto-created |
-| `DELETE` | `/files/{path}` | delete a file (refuses directories — 400) |
-| `POST` | `/openai/v1/chat/completions` | OpenAI-compatible (streaming + non-streaming; supports `tools` / `tool_choice` client-executed tool calling, composable with `response_format`) |
-| `GET` | `/openai/v1/models` | model list |
-| `POST` | `/mcp` | MCP server (streamable HTTP) — mounted only when `PIBOX_MCP_MODE=1` |
-
-All `/files/*` paths are resolved against the workspace root with traversal checking — `..` segments that escape the root return 400. Same `Authorization: Bearer ...` token gates them as the rest of the API.
-
-```bash
-# upload a file
-curl -sS -X PUT \
-  -H "Authorization: Bearer your-secret" \
-  --data-binary @local.txt \
-  http://localhost:8080/files/notes/hello.txt
-
-# download it back
-curl -sS -H "Authorization: Bearer your-secret" \
-  http://localhost:8080/files/notes/hello.txt
-
-# list the dir
-curl -sS -H "Authorization: Bearer your-secret" \
-  http://localhost:8080/files/notes | jq
-
-# delete it
-curl -sS -X DELETE -H "Authorization: Bearer your-secret" \
-  http://localhost:8080/files/notes/hello.txt
-```
-
-**`POST /run`** body: `prompt` (required), `workspace`, `model`, `systemPrompt`, `appendSystemPrompt`, `jsonSchema`, `noContinue`, `resume`, `timeoutSeconds`, `thinking`, `noTools`, `toolsAllowlist`, `includeRaw`, `async`, `fireAndForget`. With `jsonSchema` set the response includes `text`, `json`, `events`, `sessionId`, `usage`, `attempts`; without it the response is `{runId, workspace, exitCode, text}`.
-
-```bash
-curl -s http://localhost:8080/run \
-  -H "Authorization: Bearer your-secret" \
-  -H "Content-Type: application/json" \
-  -d '{"prompt": "say HELLO", "workspace": "/workspace"}'
-```
-
-### Telegram mode
-
-`PIBOX_TELEGRAM_MODE=1` + `PIBOX_TELEGRAM_MODE_TOKEN=<token>`.
-
-- Text in → pi runs → Markdown→HTML rendered response back.
-- File uploads land in the chat's workspace. `[SEND_FILE: path]` in pi's output delivers workspace files as Telegram attachments.
-- Per-chat overrides: `/model`, `/effort` (maps to pi's `--thinking` levels), `/system_prompt`, `/append_system_prompt`. Persisted across restarts.
-- `/cancel` kills the in-flight run. `/reload` re-reads config. `/config` dumps merged settings. `/fetch <path>` downloads a file.
-- Replies to cron messages inject the job's instruction + result so pi has full context for follow-ups.
-
-Config at `$HOME/.aicodebox/telegram.yml` (override via `PIBOX_TELEGRAM_MODE_CONFIG`):
+Long-lived FastAPI server on `:8080`. Agent runs (sync, async with run-id polling, cancellable), workspace file upload/download/list/delete with traversal checking, and an OpenAI-compatible `chat/completions` endpoint with streaming and client-executed tool calling.
 
 ```yaml
-allowed_chats: [-100123, 42]
-default:
-  model: glm-4.6
-  workspace: shared
-chats:
-  -100123:
-    workspace: alpha
-    allowed_users: [10, 20]
+environment:
+  - PIBOX_API_MODE=1
+  - PIBOX_API_MODE_TOKEN=your-secret
+  - PIBOX_AVAILABLE_MODELS=glm-4.6,glm-4.5-air
 ```
 
-### Cron mode
+### [Telegram Mode →](docs/modes/telegram.md)
 
-`PIBOX_CRON_MODE=1` + `PIBOX_CRON_MODE_FILE=/path/to/cron.yaml`. 6-field schedules via croniter. Each job fires pi with the given instruction.
+Talk to pi from Telegram. Per-chat isolated workspaces, allowed-chats and per-chat allowed-users gating, file ingestion, `[SEND_FILE: path]` to get files back, and per-chat `/model`, `/effort`, `/system_prompt`, `/append_system_prompt` overrides that persist across restarts.
 
 ```yaml
-jobs:
-  - name: morning-standup
-    schedule: "0 0 9 * * 1-5"
-    instruction: |
-      Summarize what changed in /workspace since yesterday.
-      Be brief. One paragraph max.
-    workspace: myproject
-    telegram_chat_id: -100123
-    model: glm-4.6
-    thinking: low
+environment:
+  - PIBOX_TELEGRAM_MODE=1
+  - PIBOX_TELEGRAM_MODE_TOKEN=123456:ABC
 ```
 
-Each run gets a history dir at `$HOME/.aicodebox/cron/history/<workspace>/<timestamp>-<job>/` with `meta.json`, `stdout.log`, `stderr.log`, `result.txt`. If telegram is configured, `telegram.json` lands there too and the next run's prompt gets a "prior run" hint so pi can reference its own history without you wiring it up.
+### [Cron Mode →](docs/modes/cron.md)
 
-### MCP mode
+YAML-defined scheduled jobs on 6-field croniter schedules. Per-run history dirs with `meta.json`, `stdout.log`, `stderr.log`, `result.txt`, and a "prior run" hint so a job can reference its own history.
 
-`PIBOX_MCP_MODE=1`. Exposes the MCP (Model Context Protocol) surface — `run_prompt`, `list_files`, `read_file`, `write_file`, `delete_file` as tools. Coexists with any foreground mode:
+```yaml
+environment:
+  - PIBOX_CRON_MODE=1
+  - PIBOX_CRON_MODE_FILE=/home/aicode/.aicodebox/cron.yaml
+```
 
-| Foreground | MCP placement |
-|---|---|
-| API mode (`PIBOX_API_MODE=1`) | mounted at `/mcp` on the API port — no extra process |
-| Telegram / Cron / passthrough | sidecar uvicorn on `PIBOX_MCP_MODE_PORT` (default `8081`) |
+### [MCP Mode →](docs/modes/mcp.md)
 
-Auth: `PIBOX_MCP_MODE_TOKEN=<token>` — bearer in the `Authorization: Bearer …` header, or `?apiToken=…` for clients that can't set headers. Empty = no auth. **No fallback to `API_MODE_TOKEN`** — MCP has its own bearer.
+Exposes `run_prompt` plus workspace-confined file tools over streamable HTTP, so other agents can drive pi as a tool. Coexists with any foreground mode — mounted at `/mcp` on the API port in API mode, a sidecar on its own port everywhere else.
+
+```yaml
+environment:
+  - PIBOX_MCP_MODE=1
+  - PIBOX_MCP_MODE_TOKEN=your-secret
+```
 
 ## Configuration
 
@@ -172,34 +111,7 @@ The image is built on top of [aicodebox](https://github.com/psyb0t/docker-aicode
 | `PIBOX_CRON_MODE` | `0` | Boot the cron scheduler (foreground; in-thread when telegram is also on) |
 | `PIBOX_MCP_MODE` | `0` | Expose MCP — mounted at `/mcp` in API mode, or as a sidecar elsewhere |
 
-### API mode config
-
-| Var | Default | What it does |
-|-----|---------|--------------|
-| `PIBOX_API_MODE_PORT` | `8080` | Port the API server binds to |
-| `PIBOX_API_MODE_TOKEN` | empty | Bearer token for the API surface. Empty = no auth |
-
-### Telegram mode config
-
-| Var | Default | What it does |
-|-----|---------|--------------|
-| `PIBOX_TELEGRAM_MODE_TOKEN` | — | Bot token from @BotFather |
-| `PIBOX_TELEGRAM_MODE_CONFIG` | `~/.aicodebox/telegram.yml` | Path to the telegram config yaml |
-| `PIBOX_TELEGRAM_MODE_OVERRIDES` | `~/.aicodebox/telegram_overrides.json` | Per-chat override store (model/effort/system prompts) |
-
-### Cron mode config
-
-| Var | Default | What it does |
-|-----|---------|--------------|
-| `PIBOX_CRON_MODE_FILE` | — | Path to the cron yaml |
-| `PIBOX_CRON_MODE_HISTORY_DIR` | `~/.aicodebox/cron/history` | Where cron writes per-run history dirs (`meta.json`, `stdout.log`, `stderr.log`, `result.txt`, `telegram.json`) |
-
-### MCP mode config
-
-| Var | Default | What it does |
-|-----|---------|--------------|
-| `PIBOX_MCP_MODE_PORT` | `8081` | Port the sidecar MCP server binds to (ignored when mounted inside API) |
-| `PIBOX_MCP_MODE_TOKEN` | empty | Bearer token for MCP. Empty = no auth. **No fallback to `API_MODE_TOKEN`** |
+Each mode's own knobs (ports, tokens, config paths, history dirs) live on that mode's page: [api.md](docs/modes/api.md), [telegram.md](docs/modes/telegram.md), [cron.md](docs/modes/cron.md), [mcp.md](docs/modes/mcp.md).
 
 ### Workspace & runtime
 
