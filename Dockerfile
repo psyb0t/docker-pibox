@@ -4,8 +4,8 @@
 #   docker build -t aicodebox-base:local ../docker-aicodebox/
 #   docker build --build-arg BASE_IMAGE=aicodebox-base:local -t pibox:local .
 #
-# Base pinned to aicodebox v0.14.0 (tag-only — built locally, not yet on
-# the registry; digest pin will be added once it's pushed). v0.14.0
+# Base pinned to aicodebox v0.14.5 (tag-only; the Makefile can override
+# BASE_IMAGE with a digest for reproducible builds). v0.14.5
 # serves `stream:true` for tool-calling and schema modes as buffered SSE
 # instead of a 400 — the base computes the full non-streamed answer then
 # replays it as a single-shot SSE stream (opening role chunk → one
@@ -66,14 +66,14 @@
 #   - smarter JSON extraction (fenced-in-prose, brace-balanced) (v0.8.0)
 #   - reconstruction-grade logging on the schema-mode path (v0.8.2)
 #   - single-source __version__ via importlib.metadata (v0.8.3)
-ARG BASE_IMAGE=psyb0t/aicodebox:v0.14.0
+ARG BASE_IMAGE=psyb0t/aicodebox:v0.14.5
 FROM ${BASE_IMAGE}
 
 # MCP Registry ownership label.
 LABEL io.modelcontextprotocol.server.name="io.github.psyb0t/pibox"
 
 # pi-coding-agent — pinned npm install.
-ARG PI_VERSION=0.75.3
+ARG PI_VERSION=0.84.0
 RUN npm install -g @earendil-works/pi-coding-agent@${PI_VERSION}
 
 # pibox python package (the PiAdapter). aicodebox is already in the base image

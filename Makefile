@@ -1,4 +1,5 @@
 IMAGE_NAME := psyb0t/pibox
+PKG        := pibox
 # Single-source version derivation: pibox/pyproject.toml [project]
 # version is THE source. awk reads it on the host (no Python dep
 # needed just to read the version). __init__.py reads the same value
@@ -10,14 +11,29 @@ TAG        := v$(VERSION)
 # if you need to test against a local fork of docker-aicodebox. Pin must
 # match the Dockerfile's ARG default so `make build` (which pulls then
 # builds) doesn't drift from a direct `docker build` invocation.
-BASE_IMAGE := psyb0t/aicodebox:v0.14.0
+BASE_IMAGE := psyb0t/aicodebox:v0.14.5
 
 .PHONY: all build pull-base test clean help version
 
 all: build ## Build the pibox image on top of the published base
 
-version: ## Print the version that would be tagged
+version: ## Print version, or set-everywhere+commit+tag: make version V=X.Y.Z
+ifeq ($(strip $(V)),)
 	@echo $(TAG)
+else
+	@echo "$(V)" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.]+)?$$' || { echo "V must be semver (X.Y.Z), got '$(V)'" >&2; exit 1; }
+	@set -e; old="$(VERSION)"; \
+	( cd $(PKG) && uv version "$(V)" >/dev/null ); \
+	tmp=$$(mktemp); jq --arg v "$(V)" '.version=$$v' .agents/.codex-plugin/plugin.json >"$$tmp" && mv "$$tmp" .agents/.codex-plugin/plugin.json; \
+	git add $(PKG)/pyproject.toml $(PKG)/uv.lock .agents/.codex-plugin/plugin.json; \
+	git commit -q -m "v$(V)"; \
+	git tag -a "v$(V)" -m "$(PKG) v$(V)"; \
+	echo "[make version] v$$old -> v$(V): bumped pyproject+uv.lock+codex-manifest, committed, tagged"; \
+	if git --no-pager grep -In -e "$$old" -- ':!CHANGELOG.md' ':!*uv.lock' ':!*server.json' ':!*package.json' >/dev/null 2>&1; then \
+		echo "⚠ v$$old still appears in tracked files make version does not manage — check for a missed version location:" >&2; \
+		git --no-pager grep -In -e "$$old" -- ':!CHANGELOG.md' ':!*uv.lock' ':!*server.json' ':!*package.json' >&2; \
+	fi
+endif
 
 pull-base: ## Pull the published aicodebox base image (SKIP_BASE_PULL=1 to use a locally-built base)
 	@if [ "$${SKIP_BASE_PULL:-0}" = "1" ]; then \

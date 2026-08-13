@@ -4,6 +4,28 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.15.10 — 2026-08-13
+
+Refreshes the pi coding agent and the aicodebox base, adds one-command version
+bumping, and realigns the packaged version metadata with the release tag.
+
+- **pi coding agent upgraded `0.75.3` → `0.84.0`** (`@earendil-works/pi-coding-agent`).
+  This is a large jump across many pi releases — the container build and tests
+  exercise the pi integration, but verify your workflows if you depend on
+  specific pi behaviour.
+- Base image bumped to `psyb0t/aicodebox:v0.14.5`, which fixes the API-mode
+  container restart-looping while an agent request runs — the agent subprocess
+  is now spawned in its own session/process group, so a signal it (or a tool it
+  spawned) delivers no longer reaches the uvicorn PID 1. Inherited from the
+  base; pibox itself is unchanged.
+- Added `make version V=X.Y.Z`, which sets the version everywhere it lives
+  (`pibox/pyproject.toml`, `pibox/uv.lock`, `.agents/.codex-plugin/plugin.json`),
+  commits, and tags in one command. `make version` with no argument still prints
+  the current version.
+- Realigned `pibox/pyproject.toml` with the release tag — it had drifted to
+  `0.14.0` because the published image is tagged from the git tag, not from
+  `pyproject.toml`. `make version` brings it back in step and keeps it there.
+
 ## v0.15.9 — 2026-08-09
 
 Documentation only. No code in this repo changed.
