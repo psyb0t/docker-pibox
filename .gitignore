@@ -27,3 +27,4 @@ tests/logs/
 tests/.logs/
 tests/.fixtures/
 .telemetry
+.testing/

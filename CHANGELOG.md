@@ -4,6 +4,22 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.15.11 — 2026-08-13
+
+Fixes the GLM / Anthropic-provider auth that the pi 0.84.0 bump in v0.15.10 broke.
+
+- `scripts/setup-anthropic-baseurl.sh` now writes the RESOLVED auth-token value
+  into pi's `models.json` provider `apiKey`, not the env-var name. pi >= 0.84.0
+  (shipped in v0.15.10) sends `apiKey` literally — it no longer resolves an
+  env-var name the way pi <= 0.75 did — so writing `ANTHROPIC_AUTH_TOKEN` made
+  every request 401 upstream. Any pibox pointed at an Anthropic-compatible
+  endpoint via `ANTHROPIC_BASE_URL` (Z.AI GLM, proxies) was affected since
+  v0.15.10.
+- Added `tests/test_glm.sh`: a regression guard that boots the container and
+  asserts (1) the on-disk provider `apiKey` is the resolved token, not the bare
+  variable name, and (2) a real completion comes back end-to-end. Would have
+  caught the v0.15.10 break.
+
 ## v0.15.10 — 2026-08-13
 
 Refreshes the pi coding agent and the aicodebox base, adds one-command version

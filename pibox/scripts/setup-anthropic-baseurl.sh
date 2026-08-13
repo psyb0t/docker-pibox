@@ -26,13 +26,20 @@ mkdir -p "$PI_DIR"
 
 MODELS_FILE="$PI_DIR/models.json"
 
-# Pick the auth env var name pi should resolve at request time.
+# Resolve the auth token VALUE to embed in the provider config.
 # Prefer ANTHROPIC_AUTH_TOKEN (the canonical claude-code-compatible name);
 # fall back to ANTHROPIC_API_KEY.
+#
+# pi >= 0.84.0 treats the provider `apiKey` as the LITERAL token and sends it
+# as-is — it does NOT resolve an env-var NAME (pi <= 0.75 did) and offers no
+# env-reference syntax. So write the RESOLVED VALUE, not the variable name.
+# Writing the name makes every request 401 upstream, which is exactly how the
+# v0.15.10 pi bump (0.75.3 -> 0.84.0) silently broke GLM. The token lands in
+# models.json (chmod 600 below); it is already present in the container env.
 if [ -n "$ANTHROPIC_AUTH_TOKEN" ]; then
-    KEY_VAR="ANTHROPIC_AUTH_TOKEN"
+    KEY_VALUE="$ANTHROPIC_AUTH_TOKEN"
 elif [ -n "$ANTHROPIC_API_KEY" ]; then
-    KEY_VAR="ANTHROPIC_API_KEY"
+    KEY_VALUE="$ANTHROPIC_API_KEY"
 else
     # No key set — nothing to wire up.
     exit 0
@@ -56,7 +63,7 @@ fi
 
 NEW=$(jq -n \
     --arg base "$ANTHROPIC_BASE_URL" \
-    --arg key "$KEY_VAR" \
+    --arg key "$KEY_VALUE" \
     --argjson models "$MODELS_JSON" '
     {
       providers: {
