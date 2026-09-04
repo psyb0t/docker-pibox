@@ -4,6 +4,13 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.15.12, 2026-09-04
+
+- Bumped the digest-pinned base image to `psyb0t/aicodebox:v0.14.6`, which adds independent event retention through `eventMode` and the stable full-event envelope to `POST /run`.
+- Documented how `eventMode: "full"` preserves native Pi thinking, tool lifecycle, retry, compaction, and provider records.
+- Added adapter regression tests proving full-event mode keeps Pi's JSON stream and preserves native thinking and tool records unchanged.
+- Added `make pkg-lock` and refreshed the lockfile against aicodebox v0.14.6.
+
 ## v0.15.11 — 2026-08-13
 
 Fixes the GLM / Anthropic-provider auth that the pi 0.84.0 bump in v0.15.10 broke.

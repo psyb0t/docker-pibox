@@ -24,7 +24,7 @@ docker run -d --network host \
 |--------|------|--------------|
 | `GET` | `/healthz` | liveness |
 | `GET` | `/status` | in-flight runs |
-| `POST` | `/run` | agent run → `{text, exit_code, ...}`; body `async`/`fireAndForget` fires and returns a job id instead of blocking |
+| `POST` | `/run` | agent run → `{runId, workspace, exitCode, text, ...}`; body `async`/`fireAndForget` starts a background run and returns its job id |
 | `GET` | `/run/result?runId=<id>` | poll async job |
 | `DELETE` | `/run/{id}` | kill in-flight run |
 | `GET` | `/files` | list the workspace root (`{entries: [{name, type, size?}, ...]}`) |
@@ -59,7 +59,13 @@ curl -sS -X DELETE -H "Authorization: Bearer your-secret" \
 
 ## Running a prompt
 
-**`POST /run`** body: `prompt` (required), `workspace`, `model`, `systemPrompt`, `appendSystemPrompt`, `jsonSchema`, `noContinue`, `resume`, `timeoutSeconds`, `thinking`, `noTools`, `toolsAllowlist`, `includeRaw`, `async`, `fireAndForget`. With `jsonSchema` set the response includes `text`, `json`, `events`, `sessionId`, `usage`, `attempts`; without it the response is `{runId, workspace, exitCode, text}`.
+**`POST /run`** body: `prompt` (required), `workspace`, `model`, `systemPrompt`, `appendSystemPrompt`, `jsonSchema`, `eventMode`, `outputFormat`, `noContinue`, `resume`, `timeoutSeconds`, `thinking`, `noTools`, `toolsAllowlist`, `includeRaw`, `async`, `fireAndForget`.
+
+Set `"eventMode": "full"` to include complete Pi JSONL records in the response. Every event is wrapped as `{sequence, attempt, backend, eventType, event}` and the nested `event` stays native, so thinking deltas, tool starts, tool updates, tool results, retries, compaction, and provider metadata remain available to callers. `"eventMode": "none"` returns only the final result. The default `"auto"` keeps legacy schema behavior by enabling events for `jsonSchema` requests; `"outputFormat": "json-verbose"` is the compatibility alias for that automatic full-event mode.
+
+`"outputFormat": "text"` and `"outputFormat": "json"` remain accepted legacy inputs but do not change the `/run` response serialization. New callers should use `eventMode`; only `json-verbose` has a compatibility effect while `eventMode` is `auto`.
+
+`jsonSchema` controls only the validated final `json` result. It can be combined with either event mode.
 
 ```bash
 curl -s http://localhost:8080/run \

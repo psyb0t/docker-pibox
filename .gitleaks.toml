@@ -17,7 +17,7 @@ useDefault = true
 description = "Shell interpolations and documentation placeholders, matched by value"
 regexTarget = "secret"
 regexes = [
-  # $TOKEN, ${token}, $CLAUDEBOX_MCP_MODE_TOKEN — resolved at runtime, not a value
+  # $API_TOKEN, $MCP_TOKEN, ${token}. These resolve at runtime and are not values.
   '''^\$\{?[A-Za-z_][A-Za-z0-9_]*\}?$''',
   # your-secret, your-secret-token, your-mcp-token, your-mcp-secret
   '''^(your|my)-[a-z-]*(secret|token|key)[a-z-]*$''',

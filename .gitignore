@@ -7,6 +7,8 @@
 
 # Local research / scratch
 .research_files/
+AGENTS.md
+CODEX.local.md
 
 # Local tooling / scratch — never commit
 CLAUDE.md

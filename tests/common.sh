@@ -2,14 +2,17 @@
 # Shared helpers for pibox e2e tests.
 # Sourced by test.sh and every tests/test_*.sh file.
 
+# These globals are consumed by test files that source this helper.
+# shellcheck disable=SC2034
 IMAGE_NAME="psyb0t/pibox"
+# shellcheck disable=SC2034
 TEST_TAG="local"
 IMAGE="pibox:local"
 # Use the published aicodebox base — we no longer develop the two repos
 # in parallel, so the suite tests pibox on top of whatever the released
 # base ships. Override with PIBOX_BASE_IMAGE if you need to test against
 # a local fork of the base.
-BASE_IMAGE="${PIBOX_BASE_IMAGE:-psyb0t/aicodebox:v0.14.5}"
+BASE_IMAGE="${PIBOX_BASE_IMAGE:-psyb0t/aicodebox:v0.14.6@sha256:0895ce88281fd1c307fdbbca5cec86989a252a1ca314713d74eec521c7651853}"
 CONTAINER_PREFIX="pibox-test"
 WORKDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 EXTRA_CONTAINERS=()

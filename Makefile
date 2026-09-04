@@ -11,9 +11,9 @@ TAG        := v$(VERSION)
 # if you need to test against a local fork of docker-aicodebox. Pin must
 # match the Dockerfile's ARG default so `make build` (which pulls then
 # builds) doesn't drift from a direct `docker build` invocation.
-BASE_IMAGE := psyb0t/aicodebox:v0.14.5
+BASE_IMAGE ?= psyb0t/aicodebox:v0.14.6@sha256:0895ce88281fd1c307fdbbca5cec86989a252a1ca314713d74eec521c7651853
 
-.PHONY: all build pull-base test clean help version
+.PHONY: all build pull-base test clean help version pkg-lock
 
 all: build ## Build the pibox image on top of the published base
 
@@ -34,6 +34,9 @@ else
 		git --no-pager grep -In -e "$$old" -- ':!CHANGELOG.md' ':!*uv.lock' ':!*server.json' ':!*package.json' >&2; \
 	fi
 endif
+
+pkg-lock: ## Refresh the Python lockfile under the current dependency pins
+	cd pibox && uv lock
 
 pull-base: ## Pull the published aicodebox base image (SKIP_BASE_PULL=1 to use a locally-built base)
 	@if [ "$${SKIP_BASE_PULL:-0}" = "1" ]; then \

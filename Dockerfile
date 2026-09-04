@@ -4,15 +4,10 @@
 #   docker build -t aicodebox-base:local ../docker-aicodebox/
 #   docker build --build-arg BASE_IMAGE=aicodebox-base:local -t pibox:local .
 #
-# Base pinned to aicodebox v0.14.5 (tag-only; the Makefile can override
-# BASE_IMAGE with a digest for reproducible builds). v0.14.5
-# serves `stream:true` for tool-calling and schema modes as buffered SSE
-# instead of a 400 — the base computes the full non-streamed answer then
-# replays it as a single-shot SSE stream (opening role chunk → one
-# content/tool_calls delta → finish chunk → [DONE]). Plain chat still
-# streams incrementally as before; only tool/schema modes buffer.
-# Genuine failures still surface as HTTP errors (schema exhausted → 422,
-# agent crash → 500) rather than a stream.
+# Base pinned to the aicodebox v0.14.6 multi-architecture manifest.
+# v0.14.6 adds independent native event retention through `eventMode`
+# while keeping schema validation, usage, session data, and raw output
+# as separate response controls.
 # v0.13.0 lets `tools` and `response_format` COMPOSE in one request on
 # /openai/v1/chat/completions — an agentic tool-calling flow can now end
 # in a schema-validated structured JSON reply (v0.12.0 rejected that
@@ -66,7 +61,7 @@
 #   - smarter JSON extraction (fenced-in-prose, brace-balanced) (v0.8.0)
 #   - reconstruction-grade logging on the schema-mode path (v0.8.2)
 #   - single-source __version__ via importlib.metadata (v0.8.3)
-ARG BASE_IMAGE=psyb0t/aicodebox:v0.14.5
+ARG BASE_IMAGE=psyb0t/aicodebox:v0.14.6@sha256:0895ce88281fd1c307fdbbca5cec86989a252a1ca314713d74eec521c7651853
 FROM ${BASE_IMAGE}
 
 # MCP Registry ownership label.
