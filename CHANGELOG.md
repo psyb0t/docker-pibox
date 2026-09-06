@@ -4,6 +4,11 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.15.13, 2026-09-06
+
+- Updates pi-coding-agent to 0.84.4.
+- Rebuilds on aicodebox v0.14.8, which provides Node.js 24.20.0 and Python 3.14.7.
+
 ## v0.15.12, 2026-09-04
 
 - Bumped the digest-pinned base image to `psyb0t/aicodebox:v0.14.6`, which adds independent event retention through `eventMode` and the stable full-event envelope to `POST /run`.
