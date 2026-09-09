@@ -202,11 +202,11 @@ End-to-end tests build the image and run it against a real LLM endpoint. Telegra
 
 ```bash
 cp .env.test.example .env.test
-$EDITOR .env.test   # fill in ANTHROPIC_* and optionally Telegram creds
+$EDITOR .env.test   # fill in ANTHROPIC_* and optionally Coding Plan or Telegram creds
 make test
 ```
 
-Telegram tests auto-skip if `AICODEBOX_TELEGRAM_MODE_TOKEN` is empty. Everything else only needs `ANTHROPIC_AUTH_TOKEN` + `ANTHROPIC_BASE_URL`.
+Telegram tests auto-skip if `AICODEBOX_TELEGRAM_MODE_TOKEN` is empty. The generic-provider tests use both Z.AI Coding Plan endpoints and reuse `ANTHROPIC_AUTH_TOKEN` unless `ZAI_CODING_AUTH_TOKEN` is set.
 
 ## License
 

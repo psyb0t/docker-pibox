@@ -47,6 +47,21 @@ docker run --rm \
   -p "list the files in /workspace"
 ```
 
+Z.AI Coding Plan also exposes an OpenAI-compatible coding endpoint. Use a
+Coding Plan model that the account can call. The endpoint lists models at
+`GET /models`. The Anthropic endpoint lists models at `GET /v1/models`.
+
+```bash
+docker run --rm \
+  -e PIBOX_PROVIDER_BASE_URL=https://api.z.ai/api/coding/paas/v4 \
+  -e PIBOX_PROVIDER_API=openai-completions \
+  -e PIBOX_PROVIDER_API_KEY=your-z-ai-api-key \
+  -e PIBOX_PROVIDER_MODEL=glm-5.3-flash \
+  -v "$PWD/workspace:/workspace" \
+  psyb0t/pibox:latest \
+  -p "list the files in /workspace"
+```
+
 For API mode, list the upstream models in `PIBOX_AVAILABLE_MODELS` so pibox can advertise and validate them:
 
 ```bash

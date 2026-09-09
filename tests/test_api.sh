@@ -23,9 +23,13 @@ _api_container_name() {
 }
 
 # Start an API container. Sets $API_URL, $API_TOKEN, $API_CONTAINER.
-# Args: [token]
+# Args: [token] [provider_api provider_base_url provider_api_key provider_model]
 _api_start() {
     local token="${1:-}"
+    local provider_api="${2:-}"
+    local provider_base_url="${3:-}"
+    local provider_api_key="${4:-}"
+    local provider_model="${5:-$TEST_MODEL}"
     local cname
     cname=$(_api_container_name)
     local port
@@ -38,18 +42,37 @@ _api_start() {
         extra+=(-e "AICODEBOX_MCP_MODE_TOKEN=$token")
     fi
 
+    local upstream_env=()
+    if [ -n "$provider_api" ]; then
+        if [ -z "$provider_base_url" ] || [ -z "$provider_api_key" ] || [ -z "$provider_model" ]; then
+            log "  FAIL: generic provider tests require API, base URL, key, and model"
+            return 1
+        fi
+        upstream_env=(
+            -e "PIBOX_PROVIDER_NAME=$TEST_PROVIDER_NAME"
+            -e "PIBOX_PROVIDER_API=$provider_api"
+            -e "PIBOX_PROVIDER_BASE_URL=$provider_base_url"
+            -e "PIBOX_PROVIDER_API_KEY=$provider_api_key"
+            -e "PIBOX_PROVIDER_MODEL=$provider_model"
+        )
+    else
+        upstream_env=(
+            -e "ANTHROPIC_AUTH_TOKEN=$ANTHROPIC_AUTH_TOKEN"
+            -e "ANTHROPIC_API_KEY=$ANTHROPIC_AUTH_TOKEN"
+            -e "ANTHROPIC_BASE_URL=$ANTHROPIC_BASE_URL"
+            -e "ANTHROPIC_MODEL=$TEST_MODEL"
+        )
+    fi
+
     docker rm -f "$cname" >/dev/null 2>&1 || true
     docker run -d --name "$cname" \
         --network host \
         -e "AICODEBOX_API_MODE=1" \
         -e "AICODEBOX_API_MODE_PORT=$port" \
         -e "AICODEBOX_MCP_MODE=1" \
-        -e "AICODEBOX_AVAILABLE_MODELS=$TEST_MODEL" \
-        -e "ANTHROPIC_AUTH_TOKEN=$ANTHROPIC_AUTH_TOKEN" \
-        -e "ANTHROPIC_API_KEY=$ANTHROPIC_AUTH_TOKEN" \
-        -e "ANTHROPIC_BASE_URL=$ANTHROPIC_BASE_URL" \
-        -e "ANTHROPIC_MODEL=$TEST_MODEL" \
+        -e "AICODEBOX_AVAILABLE_MODELS=$provider_model" \
         -e "AICODEBOX_CONTAINER_NAME=$cname" \
+        "${upstream_env[@]}" \
         "${extra[@]}" \
         "$IMAGE" >/dev/null
     EXTRA_CONTAINERS+=("$cname")
@@ -975,9 +998,13 @@ test_api_oai_image() {
         return 1
     }
     assert_contains "$body" "\"object\":\"chat.completion\"" "oai multimodal response shape" || return 1
-    docker exec "$API_CONTAINER" ls /workspace/_oai_uploads/ 2>/dev/null | grep -qE '^upload_[0-9a-f]+\.png$' \
-        && log "  OK: oai image saved to /workspace/_oai_uploads/" \
-        || { log "  FAIL: oai image not saved"; docker exec "$API_CONTAINER" ls /workspace/_oai_uploads/ 2>/dev/null | sed 's/^/    /'; return 1; }
+    if docker exec "$API_CONTAINER" ls /workspace/_oai_uploads/ 2>/dev/null | grep -qE '^upload_[0-9a-f]+\.png$'; then
+        log "  OK: oai image saved to /workspace/_oai_uploads/"
+        return 0
+    fi
+    log "  FAIL: oai image not saved"
+    docker exec "$API_CONTAINER" ls /workspace/_oai_uploads/ 2>/dev/null | sed 's/^/    /'
+    return 1
 }
 
 test_api_mcp_handshake() {

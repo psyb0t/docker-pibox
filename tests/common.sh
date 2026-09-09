@@ -14,6 +14,7 @@ IMAGE="pibox:local"
 # a local fork of the base.
 BASE_IMAGE="${PIBOX_BASE_IMAGE:-psyb0t/aicodebox:v0.14.8@sha256:3f28a053b88d9989698444c0f3d372b5ec6865df1eacb3ae11333245876a0b51}"
 CONTAINER_PREFIX="pibox-test"
+TEST_PROVIDER_NAME="pibox-e2e"
 WORKDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 EXTRA_CONTAINERS=()
 ALL_TESTS=()

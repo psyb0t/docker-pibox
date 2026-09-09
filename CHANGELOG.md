@@ -4,6 +4,12 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.16.1, 2026-09-09
+
+- Adds live E2E coverage for Z.AI Coding Plan through both Anthropic Messages
+  and OpenAI Chat Completions generic-provider configuration.
+- Documents the Z.AI Coding Plan OpenAI endpoint and model-list endpoints.
+
 ## v0.16.0, 2026-09-09
 
 - Adds generic upstream provider configuration with `PIBOX_PROVIDER_BASE_URL`,
