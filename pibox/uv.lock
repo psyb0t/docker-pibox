@@ -403,7 +403,7 @@ wheels = [
 
 [[package]]
 name = "pibox"
-version = "0.15.13"
+version = "0.16.0"
 source = { editable = "." }
 
 [package.dev-dependencies]

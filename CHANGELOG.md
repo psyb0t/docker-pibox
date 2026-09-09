@@ -4,6 +4,21 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.16.0, 2026-09-09
+
+- Adds generic upstream provider configuration with `PIBOX_PROVIDER_BASE_URL`,
+  `PIBOX_PROVIDER_API`, `PIBOX_PROVIDER_API_KEY`, and
+  `PIBOX_PROVIDER_MODEL`.
+- Supports Pi's documented custom HTTP APIs: OpenAI Chat Completions, OpenAI
+  Responses, Anthropic Messages, and Google Generative AI. This includes
+  LiteLLM and Anthropic-compatible endpoints such as Z.AI.
+- Renames `scripts/setup-anthropic-baseurl.sh` to
+  `scripts/setup-provider-env.sh`. Existing `ANTHROPIC_*` configuration stays
+  supported as an Anthropic Messages compatibility path.
+- Stores the generic upstream key only in the Pi process environment. Pi's
+  provider configuration keeps an environment-variable reference instead of
+  the key value.
+
 ## v0.15.13, 2026-09-06
 
 - Updates pi-coding-agent to 0.84.4.

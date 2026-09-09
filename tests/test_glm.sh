@@ -1,7 +1,7 @@
 #!/bin/bash
 # GLM / Anthropic-provider auth regression tests.
 #
-# Guards the bug where scripts/setup-anthropic-baseurl.sh wrote the env-var NAME
+# Guards the bug where scripts/setup-provider-env.sh wrote the env-var NAME
 # ("ANTHROPIC_AUTH_TOKEN") into pi's models.json instead of the resolved token
 # VALUE. pi >= 0.84.0 sends the provider apiKey literally, so the name 401s
 # upstream and no real completion comes back — which is how the v0.15.10 pi bump

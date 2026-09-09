@@ -11,7 +11,7 @@ metadata:
 
 [pi-coding-agent](https://github.com/earendil-works/pi-mono/tree/main/packages/coding-agent) inside an [aicodebox](https://github.com/psyb0t/docker-aicodebox) container. One image, seven ways in: interactive shell, one-shot exec, HTTP REST API, OpenAI-compatible endpoint, MCP server, Telegram bot, cron scheduler.
 
-You talk to pibox, pibox talks to pi, pi talks to whatever Anthropic-compatible LLM you point it at (`ANTHROPIC_BASE_URL` / `ANTHROPIC_AUTH_TOKEN`).
+You talk to pibox, pibox talks to pi, and Pi talks to the configured upstream LLM. Use `PIBOX_PROVIDER_*` for Pi's documented custom HTTP APIs, including LiteLLM and Anthropic-compatible endpoints. `ANTHROPIC_*` remains a compatibility shortcut for existing Anthropic Messages deployments.
 
 For installation and configuration, see [references/setup.md](references/setup.md).
 
@@ -50,7 +50,7 @@ docker run -it --rm \
   psyb0t/pibox:latest
 ```
 
-Auth: none at the container boundary — you're inside it. pi itself uses the `ANTHROPIC_*` env vars.
+Auth: none at the container boundary. Pi uses the upstream provider variables in [references/setup.md](references/setup.md#llm-upstream).
 
 ## One-shot exec mode
 
@@ -66,7 +66,7 @@ docker run --rm \
   -p "list the files in /workspace"
 ```
 
-Any pi CLI flag works here (`--model`, `--thinking`, `--session`, etc.) — the entrypoint just execs `pi "$@"`. Auth: none at the container boundary; pi uses `ANTHROPIC_*`.
+Any Pi CLI flag works here (`--model`, `--thinking`, `--session`, etc.). Auth: none at the container boundary. Pi uses the upstream provider variables in [references/setup.md](references/setup.md#llm-upstream).
 
 ## REST API mode
 
@@ -238,7 +238,7 @@ Auth: none — this is a scheduled background job, not a request-driven surface.
 
 ## Auth (LLM upstream)
 
-pi speaks the Anthropic wire protocol. Point it at any Anthropic-compatible endpoint via env vars, forwarded into every mode:
+Use `PIBOX_PROVIDER_*` for Pi's documented custom HTTP APIs, including LiteLLM and Anthropic-compatible endpoints. `ANTHROPIC_*` remains a compatibility path for existing Anthropic Messages endpoints. The full configuration matrix and examples are in [references/setup.md](references/setup.md#llm-upstream).
 
 | Var | Purpose |
 |-----|---------|

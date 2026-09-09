@@ -3,7 +3,7 @@
 ## Requirements
 
 - Docker
-- An Anthropic-compatible LLM endpoint + credentials (`ANTHROPIC_AUTH_TOKEN`/`ANTHROPIC_API_KEY` + `ANTHROPIC_BASE_URL`) — Z.AI, direct Anthropic, or any compatible proxy. pi drives the model; pibox drives pi.
+- An LLM endpoint supported by Pi's custom HTTP provider configuration. `PIBOX_PROVIDER_*` accepts an endpoint URL, protocol, API key or token, and model. It covers LiteLLM, Anthropic Messages endpoints, and Google Generative AI. `ANTHROPIC_*` remains available for existing Anthropic-compatible deployments. Pi drives the model; pibox drives Pi.
 - A host workspace directory to bind-mount (`-v $PWD/workspace:/workspace`), so agent output/session state persists across container restarts.
 
 ## Quick Install
@@ -152,7 +152,36 @@ The image is built on [aicodebox](https://github.com/psyb0t/docker-aicodebox); t
 | `PIBOX_AVAILABLE_MODELS` | — | **Required for API mode.** CSV list returned by `/openai/v1/models` and shown in the telegram `/model` picker |
 | `PIBOX_AVAILABLE_EFFORTS` | adapter list (`off,minimal,low,medium,high,xhigh`) | Override the effort/`--thinking` list shown by the telegram `/effort` picker (comma-separated) |
 
-### LLM upstream (Anthropic wire protocol)
+### LLM upstream
+
+#### Generic custom HTTP provider
+
+Use these variables for Pi's documented custom HTTP APIs. They configure the upstream model Pi uses, not pibox's own OpenAI-compatible `/openai/v1` endpoint.
+
+| Var | Default | What it does |
+|-----|---------|--------------|
+| `PIBOX_PROVIDER_NAME` | `pibox` | Provider identifier. Lowercase letters, numbers, and `-` only. |
+| `PIBOX_PROVIDER_API` | `openai-completions` | `openai-completions`, `openai-responses`, `anthropic-messages`, or `google-generative-ai` |
+| `PIBOX_PROVIDER_BASE_URL` | none | Required upstream HTTP base URL |
+| `PIBOX_PROVIDER_API_KEY` | none | Required upstream API key or token |
+| `PIBOX_PROVIDER_MODEL` | none | Required default upstream model ID |
+
+LiteLLM example:
+
+```bash
+docker run --rm --network host \
+  -e PIBOX_PROVIDER_BASE_URL=http://127.0.0.1:4000/v1 \
+  -e PIBOX_PROVIDER_API=openai-completions \
+  -e PIBOX_PROVIDER_API_KEY=your-litellm-virtual-key \
+  -e PIBOX_PROVIDER_MODEL=your-model-id \
+  -v "$PWD/workspace:/workspace" \
+  psyb0t/pibox:latest \
+  -p "list the files in /workspace"
+```
+
+For API mode, set `PIBOX_AVAILABLE_MODELS=your-model-id` too. Do not combine `PIBOX_PROVIDER_*` with `ANTHROPIC_BASE_URL`. pibox rejects the ambiguous configuration. The generic variables cover Pi's documented custom HTTP APIs, not every cloud-specific built-in provider.
+
+#### Anthropic compatibility
 
 | Var | Purpose |
 |-----|---------|

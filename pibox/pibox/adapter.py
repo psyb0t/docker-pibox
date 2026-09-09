@@ -19,6 +19,8 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
+from pathlib import Path
 from typing import Any, ClassVar
 
 from aicodebox.adapters.base import (
@@ -31,6 +33,49 @@ from aicodebox.adapters.base import (
 log = logging.getLogger(__name__)
 
 VALID_THINKING = {"off", "minimal", "low", "medium", "high", "xhigh"}
+CUSTOM_PROVIDER_STATE_PATH = Path("/home/aicode/.pi/agent/pibox-provider.json")
+CUSTOM_PROVIDER_NAME_RE = re.compile(r"^[a-z][a-z0-9-]*$")
+MAX_CUSTOM_PROVIDER_STATE_BYTES = 4096
+MAX_MODEL_ID_LENGTH = 256
+
+
+def _has_option(args: list[str], option: str) -> bool:
+    return any(value == option or value.startswith(f"{option}=") for value in args)
+
+
+def _configured_provider() -> tuple[str, str] | None:
+    """Read the no-secret provider marker created by the container entrypoint."""
+    if CUSTOM_PROVIDER_STATE_PATH.is_symlink() or not CUSTOM_PROVIDER_STATE_PATH.is_file():
+        return None
+
+    try:
+        if CUSTOM_PROVIDER_STATE_PATH.stat().st_size > MAX_CUSTOM_PROVIDER_STATE_BYTES:
+            log.warning("ignoring oversized pibox provider state")
+            return None
+        state = json.loads(CUSTOM_PROVIDER_STATE_PATH.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        log.warning("ignoring invalid pibox provider state")
+        return None
+
+    if not isinstance(state, dict):
+        log.warning("ignoring malformed pibox provider state")
+        return None
+
+    provider = state.get("provider")
+    model = state.get("model")
+    if (
+        state.get("managedBy") != "pibox"
+        or not isinstance(provider, str)
+        or not CUSTOM_PROVIDER_NAME_RE.fullmatch(provider)
+        or not isinstance(model, str)
+        or not model
+        or len(model) > MAX_MODEL_ID_LENGTH
+        or "\n" in model
+        or "\r" in model
+    ):
+        log.warning("ignoring malformed pibox provider state")
+        return None
+    return provider, model
 
 
 def _truncate(value: Any, limit: int = 80) -> str:
@@ -91,6 +136,7 @@ class PiAdapter(AgentAdapter):
 
     def build_argv(self, req: RunRequest) -> list[str]:
         argv: list[str] = [self.binary, "-p"]
+        configured_provider = _configured_provider()
         # Always invoke pi in `--mode json` so the adapter receives the full
         # session-event stream (session id, per-turn usage + cost, assistant
         # text). pi's `--mode text` emits only the assistant text with zero
@@ -101,6 +147,8 @@ class PiAdapter(AgentAdapter):
 
         if req.model:
             argv += ["--model", req.model]
+        elif configured_provider and not _has_option(list(req.extra_args or []), "--model"):
+            argv += ["--model", configured_provider[1]]
         if req.thinking:
             argv += ["--thinking", req.thinking]
         if req.system_prompt:
@@ -148,25 +196,27 @@ class PiAdapter(AgentAdapter):
         if req.extra_args:
             argv += list(req.extra_args)
 
-        # pi's built-in `zai` provider auto-claims `glm-*` model names, which
-        # bypasses the ANTHROPIC_BASE_URL override seeded into models.json by
-        # scripts/setup-anthropic-baseurl.sh. When the user has set an
-        # Anthropic-compatible base URL, force the request through the
-        # `anthropic` provider unless they explicitly chose one in extra_args.
-        forced_anthropic = False
-        if os.environ.get("ANTHROPIC_BASE_URL") and "--provider" not in argv:
-            argv += ["--provider", "anthropic"]
-            forced_anthropic = True
+        # A model name may otherwise be claimed by a built-in Pi provider.
+        # Force the bootstrapped provider unless the caller chose one.
+        forced_provider = ""
+        if not _has_option(argv, "--provider"):
+            if configured_provider:
+                forced_provider = configured_provider[0]
+            elif os.environ.get("ANTHROPIC_BASE_URL"):
+                forced_provider = "anthropic"
+            if forced_provider:
+                argv += ["--provider", forced_provider]
 
         log.debug(
             "build_argv: model=%s thinking=%s session=%s tools=%s "
-            "extra_args=%d forced_provider_anthropic=%s argc=%d",
-            req.model or "(default)",
+            "extra_args=%d configured_provider=%s forced_provider=%s argc=%d",
+            req.model or (configured_provider[1] if configured_provider else "(default)"),
             req.thinking or "(default)",
             session_choice,
             tools_choice,
             len(req.extra_args or []),
-            forced_anthropic,
+            bool(configured_provider),
+            forced_provider or "(none)",
             len(argv),
         )
 
@@ -446,5 +496,6 @@ class PiAdapter(AgentAdapter):
             f"{home}/.pi/agent/auth.json",
             f"{home}/.pi/agent/settings.json",
             f"{home}/.pi/agent/models.json",
+            f"{home}/.pi/agent/pibox-provider.json",
             f"{home}/.pi/agent/sessions",
         ]

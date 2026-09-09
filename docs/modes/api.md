@@ -2,7 +2,9 @@
 
 `PIBOX_API_MODE=1`. Runs pibox as a long-lived FastAPI server on `:8080` (override with `PIBOX_API_MODE_PORT`), exposing agent runs, workspace file operations, and an OpenAI-compatible chat endpoint.
 
-> **Required:** `PIBOX_AVAILABLE_MODELS=<csv>` (e.g. `glm-4.6,claude-sonnet-4-6`). API mode refuses to boot without it — `/openai/v1/models` needs a real list and there's no sensible default (pi can drive any provider's models). Pick the ones your configured `ANTHROPIC_BASE_URL` / provider actually serves.
+> **Required:** `PIBOX_AVAILABLE_MODELS=<csv>` (e.g. `glm-4.6,claude-sonnet-4-6`). API mode refuses to boot without it because `/openai/v1/models` needs a real list. Pick models served by your configured upstream provider.
+
+Configure the upstream model first. [LLM providers](../providers.md) covers OpenAI-compatible, Anthropic Messages, and Google Generative AI endpoints.
 
 ## Setup
 

@@ -18,6 +18,7 @@ You talk to pibox. pibox talks to pi. pi talks to whatever LLM you point it at. 
   - [Cron mode](docs/modes/cron.md)
   - [MCP mode](docs/modes/mcp.md)
 - [Configuration](#configuration)
+- [LLM providers](docs/providers.md)
 - [Auth](#auth)
 - [Agent integrations](#agent-integrations)
 - [Development](#development)
@@ -32,6 +33,7 @@ docker run --rm \
   -e ANTHROPIC_AUTH_TOKEN=your-token \
   -e ANTHROPIC_BASE_URL=https://api.z.ai/api/anthropic \
   -e ANTHROPIC_MODEL=glm-4.6 \
+  -v "$PWD/workspace:/workspace" \
   psyb0t/pibox:latest \
   -p "list the files in /workspace"
 
@@ -102,6 +104,8 @@ Naming convention: `PIBOX_<MODE>_MODE=1` is the on/off flag, `PIBOX_<MODE>_MODE_
 
 The image is built on top of [aicodebox](https://github.com/psyb0t/docker-aicodebox), so the equivalent `AICODEBOX_*` names also work — the entrypoint translates `PIBOX_X` to `AICODEBOX_X` when only the pibox-prefixed one is set. If you set both, `AICODEBOX_*` wins.
 
+Set the upstream endpoint URL, protocol, API key or token, and model with [LLM providers](docs/providers.md). `PIBOX_PROVIDER_*` supports Pi's documented OpenAI, Anthropic, and Google custom HTTP APIs. The `ANTHROPIC_*` variables below remain a compatibility path for existing Anthropic-compatible deployments.
+
 ### Mode flags
 
 | Var | Default | What it does |
@@ -124,7 +128,7 @@ Each mode's own knobs (ports, tokens, config paths, history dirs) live on that m
 
 ## Auth
 
-pi speaks the Anthropic wire protocol. Point it at any Anthropic-compatible endpoint:
+For Anthropic-compatible endpoints, use the compatibility variables below. For LiteLLM or another OpenAI-compatible endpoint, use [generic provider configuration](docs/providers.md).
 
 | Var | Purpose |
 |-----|---------|
