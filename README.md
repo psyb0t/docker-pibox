@@ -28,6 +28,16 @@ You talk to pibox. pibox talks to pi. pi talks to whatever LLM you point it at. 
 
 ## Quick start
 
+Install the host wrapper. Set `PIBOX_FULL=1` to make the full image the
+installed default.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/psyb0t/docker-pibox/main/install.sh | bash
+```
+
+The installer creates the Pi, pibox state, and SSH directories, pulls the
+selected image, and installs `pibox` on `PATH`.
+
 ```bash
 # one-shot prompt
 docker run --rm \
@@ -131,6 +141,19 @@ Each mode's own knobs (ports, tokens, config paths, history dirs) live on that m
 | `PIBOX_CONTAINER_NAME` | `aicodebox` | Used to scope per-container state files (auth, etc.) |
 | `PIBOX_AVAILABLE_MODELS` | — | **Required for API mode.** CSV list returned by `/openai/v1/models` and shown in the telegram `/model` picker. pibox registers every listed model with the upstream provider under `PIBOX_PROVIDER_API`. API mode refuses to boot without it; telegram `/model` picker degrades to a "set this env var" reply. |
 | `PIBOX_AVAILABLE_EFFORTS` | adapter list | Override the effort/`--thinking` list shown by the telegram `/effort` picker (comma-separated) |
+| `PIBOX_DATA_DIR` | `~/.pi` | Host Pi configuration, auth, extensions, and sessions directory |
+| `PIBOX_STATE_DIR` | `~/.aicodebox` | Host pibox mode configuration and history directory |
+| `PIBOX_SSH_DIR` | `~/.ssh/pibox` | Host SSH directory mounted into the container |
+| `PIBOX_IMAGE` | installed image | Override the image selected by the installed wrapper |
+| `PIBOX_FULL` | installed choice | `0` selects minimal and `1` selects full |
+| `PIBOX_ENV_*` | none | Forward a pibox environment variable into the container |
+| `PIBOX_MOUNT_*` | none | Add a same-path or `host:container` bind mount |
+
+Managed launchers can install the wrapper into a private bundle with
+`PIBOX_INSTALL_DIR`, `PIBOX_BIN_NAME`, and `AICODEBOX_MANAGED_INSTALL=1`. The
+installed wrapper also understands the versioned `AICODEBOX_HOST_*`
+nested-launch context and passes sibling wrappers, host homes, workspace paths,
+common mounts, and common environment variables through to child containers.
 
 ## Auth
 

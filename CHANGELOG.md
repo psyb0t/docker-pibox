@@ -4,6 +4,16 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.18.0, 2026-09-13
+
+- Adds the `pibox` host wrapper and installer with persistent Pi, pibox state,
+  and SSH directories.
+- Adds managed installation into a caller-selected wrapper directory without
+  replacing existing SSH keys.
+- Adds nested box launches with host-path propagation, sibling wrapper mounts,
+  and shared `AICODEBOX_ENV_*` and `AICODEBOX_MOUNT_*` settings.
+- Downloads the installed wrapper from the matching immutable release tag.
+
 ## v0.17.0, 2026-09-13
 
 - Adds `psyb0t/pibox:latest-full`, built from digest-pinned `aicodebox:v0.15.0-full` with Pi and pibox on top.

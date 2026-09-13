@@ -14,7 +14,7 @@ TAG        := v$(VERSION)
 BASE_IMAGE ?= psyb0t/aicodebox:v0.15.0@sha256:937dc2df9a89cc78b59bc27c021155ad3f7d96617d26238fb9617c5c2a2d03c7
 FULL_BASE_IMAGE ?= psyb0t/aicodebox:v0.15.0-full@sha256:ec4dac99bca4dba648f598af0bd94f1a98185e53d54ea5717db0c2076e12a612
 
-.PHONY: all build build-full build-all pull-base pull-full-base test clean help version pkg-lock
+.PHONY: all build build-full build-all install install-full install-wrapper pull-base pull-full-base test test-wrapper-install clean help version pkg-lock
 
 all: build ## Build the pibox image on top of the published base
 
@@ -68,6 +68,18 @@ build-full: pull-full-base ## Build + tag the full image (both :v<VERSION>-full 
 		-t $(IMAGE_NAME):latest-full .
 
 build-all: build build-full ## Build both minimal and full variants
+
+install: build ## Build the minimal image locally and install the wrapper
+	PIBOX_SRC_LOCAL=true bash ./install.sh
+
+install-full: build-full ## Build the full image locally and install the wrapper
+	PIBOX_FULL=1 PIBOX_SRC_LOCAL=true bash ./install.sh
+
+install-wrapper: ## Install the wrapper against an existing local image
+	PIBOX_SRC_LOCAL=true bash ./install.sh
+
+test-wrapper-install: ## Verify standalone and nested wrapper/install behavior without Docker
+	bash tests/test_wrapper_install.sh
 
 test: ## Run the full e2e test suite (needs .env.test)
 	bash test.sh
