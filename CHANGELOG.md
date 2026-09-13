@@ -4,6 +4,12 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.17.0, 2026-09-13
+
+- Adds `psyb0t/pibox:latest-full`, built from digest-pinned `aicodebox:v0.15.0-full` with Pi and pibox on top.
+- Rebuilds the minimal image on digest-pinned `psyb0t/aicodebox:v0.15.0`.
+- Excludes local virtual environments and agent scratch from Docker build contexts.
+
 ## v0.16.2, 2026-09-13
 
 - Fixes every model in `PIBOX_AVAILABLE_MODELS` other than `PIBOX_PROVIDER_MODEL` failing on each request. Only the configured provider model was written to Pi's provider model list, so any other advertised model fell back to Pi's default API shape, disagreed with the provider base URL, and failed with `Stream ended without finish_reason`.

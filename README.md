@@ -12,6 +12,7 @@ You talk to pibox. pibox talks to pi. pi talks to whatever LLM you point it at. 
 ## Table of Contents
 
 - [Quick start](#quick-start)
+- [Image variants](#image-variants)
 - [Modes](#modes)
   - [API mode](docs/modes/api.md)
   - [Telegram mode](docs/modes/telegram.md)
@@ -48,6 +49,11 @@ docker run -d --network host \
   -v "$PWD/workspace:/workspace" \
   psyb0t/pibox:latest
 ```
+
+## Image variants
+
+- `psyb0t/pibox:latest` is the minimal image.
+- `psyb0t/pibox:latest-full` starts from the immutable `aicodebox:v0.15.0-full` base, then adds Pi and pibox. It carries the shared development toolchain without rebuilding it in this repository.
 
 ## Modes
 
@@ -189,7 +195,9 @@ enabled).
 
 ```bash
 make help   # list targets
-make build  # pull the published aicodebox base, build + tag psyb0t/pibox:v<VERSION> and :latest
+make build      # build the minimal image
+make build-full # build the full image from aicodebox full
+make build-all  # build both variants
 make test   # run the full e2e suite (needs .env.test)
 make clean  # remove built images
 ```

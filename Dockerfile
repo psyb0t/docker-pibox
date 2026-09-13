@@ -4,7 +4,7 @@
 #   docker build -t aicodebox-base:local ../docker-aicodebox/
 #   docker build --build-arg BASE_IMAGE=aicodebox-base:local -t pibox:local .
 #
-# Base pinned to the aicodebox v0.14.8 multi-architecture manifest.
+# Minimal base pinned to the aicodebox v0.15.0 multi-architecture manifest.
 # v0.14.6 adds independent native event retention through `eventMode`
 # while keeping schema validation, usage, session data, and raw output
 # as separate response controls.
@@ -61,7 +61,7 @@
 #   - smarter JSON extraction (fenced-in-prose, brace-balanced) (v0.8.0)
 #   - reconstruction-grade logging on the schema-mode path (v0.8.2)
 #   - single-source __version__ via importlib.metadata (v0.8.3)
-ARG BASE_IMAGE=psyb0t/aicodebox:v0.14.8@sha256:3f28a053b88d9989698444c0f3d372b5ec6865df1eacb3ae11333245876a0b51
+ARG BASE_IMAGE=psyb0t/aicodebox:v0.15.0@sha256:937dc2df9a89cc78b59bc27c021155ad3f7d96617d26238fb9617c5c2a2d03c7
 FROM ${BASE_IMAGE}
 
 # MCP Registry ownership label.
@@ -87,7 +87,8 @@ RUN chmod +x /aicodebox-init.d/*.sh
 
 # Adapter selection — the modes resolve this at runtime.
 ENV AICODEBOX_ADAPTER=pibox.adapter:PiAdapter \
-    AICODEBOX_AGENT_BINARY=pi
+    AICODEBOX_AGENT_BINARY=pi \
+    PIBOX_IMAGE_VARIANT=minimal
 
 # pibox-branded entrypoint: aliases PIBOX_* → AICODEBOX_*, then exec the base.
 COPY pibox-entrypoint.sh /usr/local/bin/pibox-entrypoint

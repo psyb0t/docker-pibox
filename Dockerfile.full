@@ -1,0 +1,30 @@
+# pibox:latest-full. Pi Coding Agent on the shared full aicodebox base.
+#
+# Generic development tooling belongs to aicodebox. This image adds only Pi,
+# the pibox adapter, and pibox startup behavior.
+ARG BASE_IMAGE=psyb0t/aicodebox:v0.15.0-full@sha256:ec4dac99bca4dba648f598af0bd94f1a98185e53d54ea5717db0c2076e12a612
+FROM ${BASE_IMAGE}
+
+LABEL io.modelcontextprotocol.server.name="io.github.psyb0t/pibox"
+
+USER root
+
+ARG PI_VERSION=0.84.4
+RUN npm install -g @earendil-works/pi-coding-agent@${PI_VERSION}
+
+COPY pibox /opt/pibox
+RUN uv pip install --system --break-system-packages --no-deps /opt/pibox \
+    && chmod +x /opt/pibox/scripts/*.sh
+
+RUN cd /opt/pibox/extensions/mcp-bridge && npm install --omit=dev --no-audit --no-fund
+
+COPY pibox/init.d/ /aicodebox-init.d/
+RUN chmod +x /aicodebox-init.d/*.sh
+
+ENV AICODEBOX_ADAPTER=pibox.adapter:PiAdapter \
+    AICODEBOX_AGENT_BINARY=pi \
+    PIBOX_IMAGE_VARIANT=full
+
+COPY pibox-entrypoint.sh /usr/local/bin/pibox-entrypoint
+RUN chmod +x /usr/local/bin/pibox-entrypoint
+ENTRYPOINT ["/usr/local/bin/pibox-entrypoint"]

@@ -1,6 +1,10 @@
 .git
 .github
 .research_files
+.agent_notes
+.agent_knowledge
+AGENTS.md
+CODEX.local.md
 CLAUDE.md
 README.md
 LICENSE
@@ -22,3 +26,8 @@ __pycache__
 .mypy_cache
 .pytest_cache
 .telemetry/
+pibox/.venv/
+pibox/**/node_modules/
+
+# agent scratch and local caches, never part of a build
+.ruff_cache/

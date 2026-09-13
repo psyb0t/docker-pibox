@@ -7,6 +7,8 @@
 
 # Local research / scratch
 .research_files/
+.agent_notes/
+.agent_knowledge/
 AGENTS.md
 CODEX.local.md
 
@@ -17,6 +19,13 @@ PLAN.md
 implplan.md
 git-update.sh
 pyrightconfig.json
+.vscode/
+.idea/
+.editorconfig
+.envrc
+.tool-versions
+.python-version
+.nvmrc
 .mypy_cache/
 .pytest_cache/
 __pycache__/
@@ -30,3 +39,8 @@ tests/.logs/
 tests/.fixtures/
 .telemetry
 .testing/
+coverage.txt
+coverage.out
+profile.out
+.cover/
+htmlcov/
