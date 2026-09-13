@@ -149,7 +149,7 @@ The image is built on [aicodebox](https://github.com/psyb0t/docker-aicodebox); t
 |-----|---------|---------------|
 | `PIBOX_WORKSPACE` | `/workspace` | Root workspace dir inside the container |
 | `PIBOX_CONTAINER_NAME` | `aicodebox` | Used to scope per-container state files (auth, etc.) |
-| `PIBOX_AVAILABLE_MODELS` | — | **Required for API mode.** CSV list returned by `/openai/v1/models` and shown in the telegram `/model` picker |
+| `PIBOX_AVAILABLE_MODELS` | — | **Required for API mode.** CSV list returned by `/openai/v1/models` and shown in the telegram `/model` picker. pibox registers every listed model with the upstream provider under `PIBOX_PROVIDER_API` |
 | `PIBOX_AVAILABLE_EFFORTS` | adapter list (`off,minimal,low,medium,high,xhigh`) | Override the effort/`--thinking` list shown by the telegram `/effort` picker (comma-separated) |
 
 ### LLM upstream

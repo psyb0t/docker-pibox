@@ -83,7 +83,7 @@ curl -s http://localhost:8080/run \
 | `PIBOX_API_MODE` | `0` | Boot the HTTP API server (foreground) |
 | `PIBOX_API_MODE_PORT` | `8080` | Port the API server binds to |
 | `PIBOX_API_MODE_TOKEN` | empty | Bearer token for the API surface. Empty = no auth |
-| `PIBOX_AVAILABLE_MODELS` | — | **Required for API mode.** CSV list returned by `/openai/v1/models`. API mode refuses to boot without it |
+| `PIBOX_AVAILABLE_MODELS` | — | **Required for API mode.** CSV list returned by `/openai/v1/models`. pibox registers every listed model with the upstream provider under `PIBOX_PROVIDER_API`. API mode refuses to boot without it |
 
 > Every `PIBOX_*` variable is an alias for the `AICODEBOX_*` equivalent read by the base image. If both are set, `AICODEBOX_*` wins.
 

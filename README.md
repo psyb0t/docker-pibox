@@ -123,7 +123,7 @@ Each mode's own knobs (ports, tokens, config paths, history dirs) live on that m
 |-----|---------|--------------|
 | `PIBOX_WORKSPACE` | `/workspace` | Root workspace dir inside the container |
 | `PIBOX_CONTAINER_NAME` | `aicodebox` | Used to scope per-container state files (auth, etc.) |
-| `PIBOX_AVAILABLE_MODELS` | — | **Required for API mode.** CSV list returned by `/openai/v1/models` and shown in the telegram `/model` picker. API mode refuses to boot without it; telegram `/model` picker degrades to a "set this env var" reply. |
+| `PIBOX_AVAILABLE_MODELS` | — | **Required for API mode.** CSV list returned by `/openai/v1/models` and shown in the telegram `/model` picker. pibox registers every listed model with the upstream provider under `PIBOX_PROVIDER_API`. API mode refuses to boot without it; telegram `/model` picker degrades to a "set this env var" reply. |
 | `PIBOX_AVAILABLE_EFFORTS` | adapter list | Override the effort/`--thinking` list shown by the telegram `/effort` picker (comma-separated) |
 
 ## Auth

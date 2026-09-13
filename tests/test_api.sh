@@ -30,6 +30,7 @@ _api_start() {
     local provider_base_url="${3:-}"
     local provider_api_key="${4:-}"
     local provider_model="${5:-$TEST_MODEL}"
+    local available_models="${6:-$provider_model}"
     local cname
     cname=$(_api_container_name)
     local port
@@ -70,7 +71,7 @@ _api_start() {
         -e "AICODEBOX_API_MODE=1" \
         -e "AICODEBOX_API_MODE_PORT=$port" \
         -e "AICODEBOX_MCP_MODE=1" \
-        -e "AICODEBOX_AVAILABLE_MODELS=$provider_model" \
+        -e "AICODEBOX_AVAILABLE_MODELS=$available_models" \
         -e "AICODEBOX_CONTAINER_NAME=$cname" \
         "${upstream_env[@]}" \
         "${extra[@]}" \

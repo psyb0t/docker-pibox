@@ -62,7 +62,7 @@ docker run --rm \
   -p "list the files in /workspace"
 ```
 
-For API mode, list the upstream models in `PIBOX_AVAILABLE_MODELS` so pibox can advertise and validate them:
+For API mode, list the upstream models in `PIBOX_AVAILABLE_MODELS` so pibox can advertise and validate them. pibox registers every listed model with the provider under `PIBOX_PROVIDER_API`, so callers can request any of them, not only `PIBOX_PROVIDER_MODEL`. A model that Pi has no registration for falls back to Pi's default API shape, which disagrees with an Anthropic Messages base URL and fails with `Stream ended without finish_reason`:
 
 ```bash
 docker run -d --name pibox --network host \

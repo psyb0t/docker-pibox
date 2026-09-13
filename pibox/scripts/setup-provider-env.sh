@@ -11,11 +11,15 @@ readonly PROVIDER_STATE_FILE="$PI_DIR/pibox-provider.json"
 readonly LOG_FILE="${LOG_FILE:-/tmp/pibox-provider-setup.log}"
 readonly DEFAULT_PROVIDER_NAME="pibox"
 readonly DEFAULT_PROVIDER_API="openai-completions"
+readonly ANTHROPIC_PROVIDER_API="anthropic-messages"
 readonly PROVIDER_KEY_REFERENCE="\$OPENAI_API_KEY"
 readonly MAX_PROVIDER_NAME_LENGTH=64
 readonly MAX_MODEL_ID_LENGTH=256
 readonly MAX_URL_LENGTH=2048
 readonly MAX_API_KEY_LENGTH=4096
+readonly DEFAULT_CONTEXT_WINDOW=128000
+readonly DEFAULT_MAX_TOKENS=16384
+readonly MODEL_ID_SEPARATOR=","
 
 log() {
 	local level="$1"
@@ -93,6 +97,92 @@ validate_provider_api() {
 	esac
 }
 
+advertised_model_ids() {
+	printf '%s' "${AICODEBOX_AVAILABLE_MODELS:-${PIBOX_AVAILABLE_MODELS:-}}"
+}
+
+trim_whitespace() {
+	local value="$1"
+
+	value="${value#"${value%%[![:space:]]*}"}"
+	printf '%s' "${value%"${value##*[![:space:]]}"}"
+}
+
+# Pi resolves a model against the provider's own model list. A model that is
+# advertised to callers but missing from that list falls back to Pi's default
+# API shape, which then disagrees with the provider's baseUrl and surfaces at
+# request time as "Stream ended without finish_reason" rather than as a
+# configuration error. Collect the primary model plus everything in
+# AVAILABLE_MODELS so every reachable model id is declared.
+collect_model_ids() {
+	local primary_model_id="$1"
+	local -a candidate_ids=()
+	local -a model_ids=()
+	local candidate
+	local registered
+
+	IFS="$MODEL_ID_SEPARATOR" read -r -a candidate_ids <<<"$(advertised_model_ids)"
+
+	for candidate in "$primary_model_id" ${candidate_ids[@]+"${candidate_ids[@]}"}; do
+		candidate="$(trim_whitespace "$candidate")"
+		[[ -n "$candidate" ]] || continue
+		validate_single_line "$candidate" "model id '$candidate'" "$MAX_MODEL_ID_LENGTH"
+
+		for registered in ${model_ids[@]+"${model_ids[@]}"}; do
+			[[ "$registered" != "$candidate" ]] || continue 2
+		done
+
+		model_ids+=("$candidate")
+	done
+
+	# printf with no arguments would still emit one empty line, which the
+	# caller would read back as a model with an empty id.
+	[[ "${#model_ids[@]}" -gt 0 ]] || return 0
+	printf '%s\n' "${model_ids[@]}"
+}
+
+build_models_json() {
+	local provider_api="$1"
+	shift
+
+	[[ "$#" -gt 0 ]] || {
+		printf '[]'
+		return 0
+	}
+
+	jq -n \
+		--arg api "$provider_api" \
+		--argjson context_window "$DEFAULT_CONTEXT_WINDOW" \
+		--argjson max_tokens "$DEFAULT_MAX_TOKENS" \
+		'$ARGS.positional | map({
+            id: .,
+            name: .,
+            api: $api,
+            input: ["text"],
+            contextWindow: $context_window,
+            maxTokens: $max_tokens
+        })' \
+		--args "$@"
+}
+
+# An OpenAI-shaped request sent to an Anthropic-shaped endpoint (or the
+# reverse) fails as a truncated stream with no usable diagnostic. The path
+# marker is a hint rather than a contract, so a contradiction is reported and
+# startup continues.
+warn_on_api_base_url_mismatch() {
+	local provider_api="$1"
+	local base_url="$2"
+
+	if [[ "$base_url" == *"/anthropic"* && "$provider_api" != "$ANTHROPIC_PROVIDER_API" ]]; then
+		log WARN "base URL looks Anthropic-shaped but provider API is $provider_api reason=provider_api_base_url_mismatch"
+		return 0
+	fi
+
+	if [[ "$base_url" != *"/anthropic"* && "$provider_api" == "$ANTHROPIC_PROVIDER_API" && "$base_url" == *"/v"[0-9]* ]]; then
+		log WARN "base URL looks OpenAI-shaped but provider API is $provider_api reason=provider_api_base_url_mismatch"
+	fi
+}
+
 write_provider() {
 	local provider_name="$1"
 	local provider_config="$2"
@@ -163,6 +253,7 @@ configure_custom_provider() {
 	local base_url="${PIBOX_PROVIDER_BASE_URL:-}"
 	local api_key="${PIBOX_PROVIDER_API_KEY:-}"
 	local model_id="${PIBOX_PROVIDER_MODEL:-}"
+	local -a model_ids=()
 	local models_json
 	local provider_config
 
@@ -172,17 +263,12 @@ configure_custom_provider() {
 	validate_base_url "$base_url"
 	validate_single_line "$api_key" "PIBOX_PROVIDER_API_KEY" "$MAX_API_KEY_LENGTH"
 	validate_single_line "$model_id" "PIBOX_PROVIDER_MODEL" "$MAX_MODEL_ID_LENGTH"
+	warn_on_api_base_url_mismatch "$provider_api" "$base_url"
 
-	models_json="$(jq -n --arg id "$model_id" --arg api "$provider_api" '
-        [{
-            id: $id,
-            name: $id,
-            api: $api,
-            input: ["text"],
-            contextWindow: 128000,
-            maxTokens: 16384
-        }]
-    ')"
+	readarray -t model_ids < <(collect_model_ids "$model_id")
+	models_json="$(build_models_json "$provider_api" "${model_ids[@]}")"
+	log INFO "registering ${#model_ids[@]} model(s) for provider $provider_name api=$provider_api"
+
 	provider_config="$(jq -n \
 		--arg base "$base_url" \
 		--arg api "$provider_api" \
@@ -205,7 +291,8 @@ configure_custom_provider() {
 configure_anthropic_compatibility() {
 	local api_key_value
 	local model_id="${ANTHROPIC_MODEL:-}"
-	local models_json='[]'
+	local -a model_ids=()
+	local models_json
 	local provider_config
 
 	[[ -n "${ANTHROPIC_BASE_URL:-}" ]] || return 0
@@ -219,27 +306,20 @@ configure_anthropic_compatibility() {
 	fi
 
 	validate_base_url "$ANTHROPIC_BASE_URL"
-	if [[ -n "$model_id" ]]; then
-		validate_single_line "$model_id" "ANTHROPIC_MODEL" "$MAX_MODEL_ID_LENGTH"
-		models_json="$(jq -n --arg id "$model_id" '
-            [{
-                id: $id,
-                name: $id,
-                api: "anthropic-messages",
-                input: ["text"],
-                contextWindow: 128000,
-                maxTokens: 16384
-            }]
-        ')"
-	fi
+	[[ -z "$model_id" ]] || validate_single_line "$model_id" "ANTHROPIC_MODEL" "$MAX_MODEL_ID_LENGTH"
+
+	readarray -t model_ids < <(collect_model_ids "$model_id")
+	models_json="$(build_models_json "$ANTHROPIC_PROVIDER_API" ${model_ids[@]+"${model_ids[@]}"})"
+	log INFO "registering ${#model_ids[@]} model(s) for provider anthropic api=$ANTHROPIC_PROVIDER_API"
 
 	provider_config="$(jq -n \
 		--arg base "$ANTHROPIC_BASE_URL" \
+		--arg api "$ANTHROPIC_PROVIDER_API" \
 		--arg key "$api_key_value" \
 		--argjson models "$models_json" '
         {
             baseUrl: $base,
-            api: "anthropic-messages",
+            api: $api,
             apiKey: $key,
             models: $models
         }

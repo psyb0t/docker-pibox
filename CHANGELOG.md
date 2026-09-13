@@ -4,6 +4,14 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.16.2, 2026-09-13
+
+- Fixes every model in `PIBOX_AVAILABLE_MODELS` other than `PIBOX_PROVIDER_MODEL` failing on each request. Only the configured provider model was written to Pi's provider model list, so any other advertised model fell back to Pi's default API shape, disagreed with the provider base URL, and failed with `Stream ended without finish_reason`.
+- Registers every model in `PIBOX_AVAILABLE_MODELS` under the configured `PIBOX_PROVIDER_API`, for both the generic provider and the `ANTHROPIC_BASE_URL` compatibility path.
+- Warns during startup when `PIBOX_PROVIDER_BASE_URL` and `PIBOX_PROVIDER_API` describe different protocols, instead of surfacing the mismatch as a truncated stream at request time.
+- Adds live E2E coverage for a second advertised model over both Anthropic Messages and OpenAI Chat Completions, and for a LiteLLM gateway serving models from several upstreams.
+- Asserts the full OpenAI Chat Completions response contract in the generic-provider tests: response object, echoed model, message role, finish reason, content, and token usage.
+
 ## v0.16.1, 2026-09-09
 
 - Adds live E2E coverage for Z.AI Coding Plan through both Anthropic Messages
