@@ -28,15 +28,23 @@ You talk to pibox. pibox talks to pi. pi talks to whatever LLM you point it at. 
 
 ## Quick start
 
-Install the host wrapper. Set `PIBOX_FULL=1` to make the full image the
-installed default.
+Install the host wrapper.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/psyb0t/docker-pibox/main/install.sh | bash
+
+# Install the full image as the wrapper default.
+curl -fsSL https://raw.githubusercontent.com/psyb0t/docker-pibox/main/install.sh | PIBOX_FULL=1 bash
 ```
 
 The installer creates the Pi, pibox state, and SSH directories, pulls the
 selected image, and installs `pibox` on `PATH`.
+
+Install `pibox`, `codexbox`, and `claudebox` in the same command directory,
+normally `/usr/local/bin`, when you want one box to launch another. Each
+wrapper finds the sibling wrapper files there and mounts them read-only into
+its container. A sibling then runs through the host Docker daemon and mounts
+its own host data directory.
 
 ```bash
 # one-shot prompt
@@ -146,14 +154,17 @@ Each mode's own knobs (ports, tokens, config paths, history dirs) live on that m
 | `PIBOX_SSH_DIR` | `~/.ssh/pibox` | Host SSH directory mounted into the container |
 | `PIBOX_IMAGE` | installed image | Override the image selected by the installed wrapper |
 | `PIBOX_FULL` | installed choice | `0` selects minimal and `1` selects full |
+| `PIBOX_DETACH` | `0` | `1` starts a named background container instead of a disposable foreground container |
 | `PIBOX_ENV_*` | none | Forward a pibox environment variable into the container |
 | `PIBOX_MOUNT_*` | none | Add a same-path or `host:container` bind mount |
+| `AICODEBOX_ENV_*` | none | Forward a shared environment variable into the launched container, with the prefix stripped |
+| `AICODEBOX_MOUNT_*` | none | Add a shared same-path or `host:container` bind mount to the launched container |
 
-Managed launchers can install the wrapper into a private bundle with
-`PIBOX_INSTALL_DIR`, `PIBOX_BIN_NAME`, and `AICODEBOX_MANAGED_INSTALL=1`. The
-installed wrapper also understands the versioned `AICODEBOX_HOST_*`
-nested-launch context and passes sibling wrappers, host homes, workspace paths,
-common mounts, and common environment variables through to child containers.
+Automation can install the wrapper in another command directory with
+`PIBOX_INSTALL_DIR` and `PIBOX_BIN_NAME`. The installed wrapper accepts the
+versioned `AICODEBOX_HOST_*` nested-launch context. It uses those host paths as
+Docker bind sources, makes available sibling wrappers, and applies shared
+`AICODEBOX_ENV_*` and `AICODEBOX_MOUNT_*` values to the child container.
 
 ## Auth
 

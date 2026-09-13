@@ -4,6 +4,11 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.18.1, 2026-09-13
+
+- Corrects host-wrapper setup and shared-settings documentation.
+- Pins the remote installer to the matching `v0.18.1` wrapper.
+
 ## v0.18.0, 2026-09-13
 
 - Adds the `pibox` host wrapper and installer with persistent Pi, pibox state,

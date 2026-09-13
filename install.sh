@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly PIBOX_RELEASE_REF="v0.18.0"
+readonly PIBOX_RELEASE_REF="v0.18.1"
 readonly WRAPPER_URL="https://raw.githubusercontent.com/psyb0t/docker-pibox/${PIBOX_INSTALL_REF:-$PIBOX_RELEASE_REF}/wrapper.sh"
 
 log() {
