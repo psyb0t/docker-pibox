@@ -93,6 +93,25 @@ pibox
 Use raw `docker run` only when you intentionally do not want the host wrapper.
 The wrapper is the normal interactive and service entry point.
 
+### Agent use and nested launches
+
+The installed wrapper is the normal interface for people and agents. An agent
+should run `pibox` from the requested workspace instead of assembling a new
+`docker run` command. The wrapper preserves the workspace path, Pi state,
+aicodebox state, SSH state, image choice, and container lifecycle.
+
+```bash
+pibox -p "inspect this workspace and report the failing tests"
+PIBOX_FULL=1 pibox -p "run the full test suite"
+pibox -p "list the files" --thinking high
+```
+
+When one box needs another, install `pibox`, `codexbox`, and `claudebox` in
+the same command directory. A running box can call the sibling command
+directly. The parent wrapper passes the host launch context and mounts only
+the sibling wrapper file. Do not set `AICODEBOX_HOST_*`, copy a wrapper, or
+manually mount another box's state directory.
+
 ## Image variants
 
 - `psyb0t/pibox:latest` is the minimal image.
@@ -208,8 +227,7 @@ pi's thinking levels (`--thinking`): `off`, `minimal`, `low`, `medium`, `high`, 
 
 ## Agent integrations
 
-The [skill](.agents/skills/pibox) works in any agent that reads `.agents/skills/`, and
-installs natively in the clients below.
+The [skill](.agents/skills/pibox) works in any agent that reads `.agents/skills/`. It tells agents to use the installed wrapper for local work and to use MCP only for an already-running remote server. It installs natively in the clients below.
 
 ### Claude Code
 

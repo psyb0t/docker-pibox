@@ -1,6 +1,6 @@
 ---
 name: pibox
-description: pi-coding-agent (earendil-works) running on the network inside an aicodebox container. Exposes seven programmatic surfaces on one image — interactive shell, one-shot exec (`-p "..."`), an HTTP REST API (run/async/cancel, workspace file ops), an OpenAI-compatible `/openai/v1/chat/completions` endpoint (streaming, client-executed tool calling, response_format/JSON-schema), an MCP server at `/mcp` (mounted in API mode or as a sidecar), a Telegram bot, and a cron scheduler that fires pi on a schedule. Foreground modes (API/Telegram/Cron) are mutually exclusive except Telegram+Cron; MCP coexists with any of them. Bearer-token auth per surface (`PIBOX_API_MODE_TOKEN`, `PIBOX_MCP_MODE_TOKEN`), empty = no auth. Use when the user wants to drive pi-coding-agent programmatically over HTTP/MCP/Telegram/cron instead of a local terminal session, or needs to reason about which pibox mode/endpoint fits a given integration.
+description: "Install, configure, or run pi-coding-agent through the pibox wrapper, or connect to its HTTP, MCP, Telegram, or cron surfaces."
 homepage: https://github.com/psyb0t/docker-pibox
 user-invocable: true
 metadata:
@@ -14,6 +14,45 @@ metadata:
 You talk to pibox, pibox talks to pi, and Pi talks to the configured upstream LLM. Use `PIBOX_PROVIDER_*` for Pi's documented custom HTTP APIs, including LiteLLM and Anthropic-compatible endpoints. `ANTHROPIC_*` remains a compatibility shortcut for existing Anthropic Messages deployments.
 
 For installation and configuration, see [references/setup.md](references/setup.md).
+
+## Agent execution
+
+Use `pibox` when it is on `PATH`. Run it from the workspace the user named.
+Do not assemble a new `docker run` command for routine interactive or one-shot
+work. The wrapper owns the workspace mount, `~/.pi`, aicodebox state, SSH
+state, image selection, and container lifecycle.
+
+```bash
+pibox                                      # interactive Pi
+pibox -p "inspect this workspace"           # one-shot work
+pibox -p "review this change" --thinking high
+PIBOX_FULL=1 pibox -p "run the full suite"
+```
+
+Configure the Pi upstream before the first run with `PIBOX_PROVIDER_*` or the
+supported `ANTHROPIC_*` compatibility variables. Use an HTTP or MCP endpoint
+only when the user asks for a service or provides an already-running remote
+URL. MCP plugins connect to a server. They do not replace the local wrapper.
+
+Start a local API and MCP server only when the user asks for one. Set the
+actual model identifiers and distinct bearer tokens:
+
+```bash
+PIBOX_DETACH=1 \
+PIBOX_API_MODE=1 \
+PIBOX_MCP_MODE=1 \
+PIBOX_AVAILABLE_MODELS=your-model-id \
+PIBOX_API_MODE_TOKEN=your-api-token \
+PIBOX_MCP_MODE_TOKEN=your-mcp-token \
+pibox
+```
+
+If `pibox`, `codexbox`, and `claudebox` were installed in the same command
+directory, a box can invoke a sibling command directly. The parent wrapper
+passes the real host paths and the sibling wrapper file. Do not set
+`AICODEBOX_HOST_*`, copy wrapper files, or manually mount another box's state
+directory. If the sibling command is absent, ask the user to install it or to
+choose another approach.
 
 ## Security & safety
 
@@ -39,31 +78,22 @@ For installation and configuration, see [references/setup.md](references/setup.m
 
 ## Interactive shell mode
 
-No mode env var set, no args passed to `docker run`. Falls through to pi's own CLI, invoked directly — a normal interactive pi session inside the container.
+Run `pibox` with no mode variables or arguments. The wrapper starts Pi in the
+current workspace and preserves its host state.
 
 ```bash
-docker run -it --rm \
-  -e ANTHROPIC_AUTH_TOKEN=your-token \
-  -e ANTHROPIC_BASE_URL=https://api.z.ai/api/anthropic \
-  -e ANTHROPIC_MODEL=glm-4.6 \
-  -v "$PWD/workspace:/workspace" \
-  psyb0t/pibox:latest
+pibox
 ```
 
 Auth: none at the container boundary. Pi uses the upstream provider variables in [references/setup.md](references/setup.md#llm-upstream).
 
 ## One-shot exec mode
 
-No mode env var set, args passed after the image name are forwarded verbatim to the `pi` binary (passthrough). `-p "<prompt>"` runs pi non-interactively and prints the result to stdout, then exits.
+`pibox -p "<prompt>"` runs Pi non-interactively and writes the result to
+stdout, then exits. The wrapper forwards Pi flags unchanged.
 
 ```bash
-docker run --rm \
-  -e ANTHROPIC_AUTH_TOKEN=your-token \
-  -e ANTHROPIC_BASE_URL=https://api.z.ai/api/anthropic \
-  -e ANTHROPIC_MODEL=glm-4.6 \
-  -v "$PWD/workspace:/workspace" \
-  psyb0t/pibox:latest \
-  -p "list the files in /workspace"
+pibox -p "list the files in this workspace"
 ```
 
 Any Pi CLI flag works here (`--model`, `--thinking`, `--session`, etc.). Auth: none at the container boundary. Pi uses the upstream provider variables in [references/setup.md](references/setup.md#llm-upstream).

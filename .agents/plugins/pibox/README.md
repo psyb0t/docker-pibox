@@ -15,6 +15,26 @@ server requires one.
 > connects to a pibox server that **you** run. See the
 > [pibox repo](https://github.com/psyb0t/docker-pibox) to stand one up.
 
+## Start a local server
+
+Configure the Pi upstream with `PIBOX_PROVIDER_*` or the supported
+`ANTHROPIC_*` compatibility variables, then start the service through the
+wrapper from the workspace you want to expose. Set both bearer tokens before
+publishing a port.
+
+```bash
+PIBOX_DETACH=1 \
+PIBOX_API_MODE=1 \
+PIBOX_MCP_MODE=1 \
+PIBOX_AVAILABLE_MODELS=your-model-id \
+PIBOX_API_MODE_TOKEN=your-api-token \
+PIBOX_MCP_MODE_TOKEN=your-mcp-token \
+pibox
+```
+
+The plugin connects to `http://localhost:8080/mcp`. It does not launch the
+container for you. See the repository README for a remote deployment.
+
 ## Tools
 
 The 5 pibox MCP tools become available to your agent: `run_prompt` (invoke

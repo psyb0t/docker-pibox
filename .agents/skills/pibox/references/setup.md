@@ -4,7 +4,7 @@
 
 - Docker
 - An LLM endpoint supported by Pi's custom HTTP provider configuration. `PIBOX_PROVIDER_*` accepts an endpoint URL, protocol, API key or token, and model. It covers LiteLLM, Anthropic Messages endpoints, and Google Generative AI. `ANTHROPIC_*` remains available for existing Anthropic-compatible deployments. Pi drives the model; pibox drives Pi.
-- A host workspace directory to bind-mount (`-v $PWD/workspace:/workspace`), so agent output/session state persists across container restarts.
+- A target workspace. Run the wrapper from that directory so it mounts the path and preserves Pi state.
 
 ## Quick Install
 
@@ -24,15 +24,15 @@ Docker daemon to mount its own data directory.
 ### Interactive / one-shot (no server)
 
 ```bash
-docker run -it --rm \
-  -e ANTHROPIC_AUTH_TOKEN=your-token \
-  -e ANTHROPIC_BASE_URL=https://api.z.ai/api/anthropic \
-  -e ANTHROPIC_MODEL=glm-4.6 \
-  -v "$PWD/workspace:/workspace" \
-  psyb0t/pibox:latest
+pibox
+pibox -p "inspect this workspace"
+PIBOX_FULL=1 pibox -p "run the full test suite"
 ```
 
-Append `-p "your prompt"` (or any other pi CLI flags) to the `docker run` line for one-shot exec instead of an interactive shell.
+Use the wrapper for normal interactive and one-shot work. It handles the
+workspace mount, Pi state, aicodebox state, SSH state, image selection, and
+nested launch context. Do not construct a `docker run` command unless the user
+explicitly asks for a direct container deployment.
 
 ### REST / OpenAI-compatible / MCP server
 
