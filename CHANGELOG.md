@@ -4,6 +4,15 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.18.2, 2026-09-13
+
+- Makes the installed `pibox` wrapper the primary documented entry point for
+  interactive, one-shot, provider-configured, and detached service runs.
+- Keeps raw Docker invocation documented as a deliberate alternative.
+- Updates pi-coding-agent to `0.85.1`.
+- Rebuilds both variants on digest-pinned Aicodebox `v0.15.1`.
+- Disables npm dependency lifecycle scripts in both image builds.
+
 ## v0.18.1, 2026-09-13
 
 - Corrects host-wrapper setup and shared-settings documentation.

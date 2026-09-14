@@ -2,21 +2,23 @@
 #
 # Generic development tooling belongs to aicodebox. This image adds only Pi,
 # the pibox adapter, and pibox startup behavior.
-ARG BASE_IMAGE=psyb0t/aicodebox:v0.15.0-full@sha256:ec4dac99bca4dba648f598af0bd94f1a98185e53d54ea5717db0c2076e12a612
+ARG BASE_IMAGE=psyb0t/aicodebox:v0.15.1-full@sha256:249e9fcea7b9bf0f7cf19e9b91e501875ead642f03d447846367d38b27225a7e
 FROM ${BASE_IMAGE}
 
 LABEL io.modelcontextprotocol.server.name="io.github.psyb0t/pibox"
 
 USER root
 
-ARG PI_VERSION=0.84.4
-RUN npm install -g @earendil-works/pi-coding-agent@${PI_VERSION}
+ARG PI_VERSION=0.85.1
+RUN npm install -g --ignore-scripts --no-audit --no-fund \
+    @earendil-works/pi-coding-agent@${PI_VERSION}
 
 COPY pibox /opt/pibox
 RUN uv pip install --system --break-system-packages --no-deps /opt/pibox \
     && chmod +x /opt/pibox/scripts/*.sh
 
-RUN cd /opt/pibox/extensions/mcp-bridge && npm install --omit=dev --no-audit --no-fund
+RUN cd /opt/pibox/extensions/mcp-bridge \
+    && npm install --omit=dev --ignore-scripts --no-audit --no-fund
 
 COPY pibox/init.d/ /aicodebox-init.d/
 RUN chmod +x /aicodebox-init.d/*.sh

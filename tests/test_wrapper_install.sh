@@ -99,7 +99,7 @@ HOME="$tmp_root/home" PATH="$fake_bin:$PATH" \
     AICODEBOX_MANAGED_INSTALL=1 bash "$tmp_root/remote/install.sh" </dev/null >/dev/null
 [[ -x "$tmp_root/install/pibox-remote" ]] || fail "remote managed installer wrapper"
 curl_call="$(cat "$tmp_root/curl.log")"
-[[ "$curl_call" == *"/v0.18.1/wrapper.sh"* ]] || fail "wrapper download is not release-pinned"
+[[ "$curl_call" == *"/v0.18.2/wrapper.sh"* ]] || fail "wrapper download is not release-pinned"
 
 if AICODEBOX_LAUNCH_CONTEXT_VERSION=2 bash "$repo/wrapper.sh" --version >/dev/null 2>&1; then
     fail "unsupported nested-launch context was accepted"

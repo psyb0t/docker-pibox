@@ -4,7 +4,7 @@
 #   docker build -t aicodebox-base:local ../docker-aicodebox/
 #   docker build --build-arg BASE_IMAGE=aicodebox-base:local -t pibox:local .
 #
-# Minimal base pinned to the aicodebox v0.15.0 multi-architecture manifest.
+# Minimal base pinned to the aicodebox v0.15.1 multi-architecture manifest.
 # v0.14.6 adds independent native event retention through `eventMode`
 # while keeping schema validation, usage, session data, and raw output
 # as separate response controls.
@@ -61,15 +61,16 @@
 #   - smarter JSON extraction (fenced-in-prose, brace-balanced) (v0.8.0)
 #   - reconstruction-grade logging on the schema-mode path (v0.8.2)
 #   - single-source __version__ via importlib.metadata (v0.8.3)
-ARG BASE_IMAGE=psyb0t/aicodebox:v0.15.0@sha256:937dc2df9a89cc78b59bc27c021155ad3f7d96617d26238fb9617c5c2a2d03c7
+ARG BASE_IMAGE=psyb0t/aicodebox:v0.15.1@sha256:624f1014fd65c191ffc1730d35778a045d8612661bbe4848bbeba0e0a3f9f50f
 FROM ${BASE_IMAGE}
 
 # MCP Registry ownership label.
 LABEL io.modelcontextprotocol.server.name="io.github.psyb0t/pibox"
 
-# pi-coding-agent — pinned npm install.
-ARG PI_VERSION=0.84.4
-RUN npm install -g @earendil-works/pi-coding-agent@${PI_VERSION}
+# pi-coding-agent, pinned with lifecycle scripts disabled.
+ARG PI_VERSION=0.85.1
+RUN npm install -g --ignore-scripts --no-audit --no-fund \
+    @earendil-works/pi-coding-agent@${PI_VERSION}
 
 # pibox python package (the PiAdapter). aicodebox is already in the base image
 # so we install with --no-deps to avoid redundant resolution.
@@ -79,7 +80,8 @@ RUN uv pip install --system --break-system-packages --no-deps /opt/pibox \
 
 # Pre-install the mcp-bridge extension's npm deps once at build time.
 # The extension is later copied into the workspace on first run via init.d.
-RUN cd /opt/pibox/extensions/mcp-bridge && npm install --omit=dev --no-audit --no-fund
+RUN cd /opt/pibox/extensions/mcp-bridge \
+    && npm install --omit=dev --ignore-scripts --no-audit --no-fund
 
 # First-run init: drop pibox extensions and templates into the aicode home.
 COPY pibox/init.d/ /aicodebox-init.d/

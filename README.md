@@ -12,6 +12,7 @@ You talk to pibox. pibox talks to pi. pi talks to whatever LLM you point it at. 
 ## Table of Contents
 
 - [Quick start](#quick-start)
+- [Using the `pibox` wrapper](#using-the-pibox-wrapper)
 - [Image variants](#image-variants)
 - [Modes](#modes)
   - [API mode](docs/modes/api.md)
@@ -38,7 +39,9 @@ curl -fsSL https://raw.githubusercontent.com/psyb0t/docker-pibox/main/install.sh
 ```
 
 The installer creates the Pi, pibox state, and SSH directories, pulls the
-selected image, and installs `pibox` on `PATH`.
+selected image, and installs `pibox` on `PATH`. The minimal image is the
+default. `PIBOX_FULL=1` on the `bash` side of the pipe selects the full image
+and bakes that choice into the installed wrapper.
 
 Install `pibox`, `codexbox`, and `claudebox` in the same command directory,
 normally `/usr/local/bin`, when you want one box to launch another. Each
@@ -46,32 +49,54 @@ wrapper finds the sibling wrapper files there and mounts them read-only into
 its container. A sibling then runs through the host Docker daemon and mounts
 its own host data directory.
 
-```bash
-# one-shot prompt
-docker run --rm \
-  -e ANTHROPIC_AUTH_TOKEN=your-token \
-  -e ANTHROPIC_BASE_URL=https://api.z.ai/api/anthropic \
-  -e ANTHROPIC_MODEL=glm-4.6 \
-  -v "$PWD/workspace:/workspace" \
-  psyb0t/pibox:latest \
-  -p "list the files in /workspace"
+## Using the `pibox` wrapper
 
-# API server
-docker run -d --network host \
-  -e PIBOX_API_MODE=1 \
-  -e PIBOX_API_MODE_TOKEN=your-secret \
-  -e PIBOX_AVAILABLE_MODELS=glm-4.6,glm-4.5-air \
-  -e ANTHROPIC_AUTH_TOKEN=your-token \
-  -e ANTHROPIC_BASE_URL=https://api.z.ai/api/anthropic \
-  -e ANTHROPIC_MODEL=glm-4.6 \
-  -v "$PWD/workspace:/workspace" \
-  psyb0t/pibox:latest
+Run `pibox` from the directory you want Pi to work in. The wrapper mounts that
+directory at the same absolute path inside the container, persists `~/.pi`,
+`~/.aicodebox`, and `~/.ssh/pibox`, forwards `PIBOX_*` configuration, and
+passes Pi arguments through unchanged.
+
+```bash
+# interactive Pi in the current directory
+pibox
+
+# one prompt, then exit
+pibox -p "list the files in this workspace"
+
+# use an Anthropic-compatible provider for this run
+ANTHROPIC_AUTH_TOKEN=your-token \
+ANTHROPIC_BASE_URL=https://api.z.ai/api/anthropic \
+ANTHROPIC_MODEL=glm-4.6 \
+pibox -p "explain this project"
+
+# inspect Pi's native command surface
+pibox --help
+
+# temporarily use the full image instead of the installed default
+PIBOX_FULL=1 pibox -p "run the test suite"
 ```
+
+The wrapper is also the normal way to start a long-running mode. `PIBOX_DETACH=1`
+makes the named container run in the background.
+
+```bash
+PIBOX_DETACH=1 \
+PIBOX_API_MODE=1 \
+PIBOX_API_MODE_TOKEN=your-secret \
+PIBOX_AVAILABLE_MODELS=glm-4.6,glm-4.5-air \
+ANTHROPIC_AUTH_TOKEN=your-token \
+ANTHROPIC_BASE_URL=https://api.z.ai/api/anthropic \
+ANTHROPIC_MODEL=glm-4.6 \
+pibox
+```
+
+Use raw `docker run` only when you intentionally do not want the host wrapper.
+The wrapper is the normal interactive and service entry point.
 
 ## Image variants
 
 - `psyb0t/pibox:latest` is the minimal image.
-- `psyb0t/pibox:latest-full` starts from the immutable `aicodebox:v0.15.0-full` base, then adds Pi and pibox. It carries the shared development toolchain without rebuilding it in this repository.
+- `psyb0t/pibox:latest-full` starts from the immutable `aicodebox:v0.15.1-full` base, then adds Pi and pibox. It carries the shared development toolchain without rebuilding it in this repository.
 
 ## Modes
 
