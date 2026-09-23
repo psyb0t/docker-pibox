@@ -115,7 +115,7 @@ manually mount another box's state directory.
 ## Image variants
 
 - `psyb0t/pibox:latest` is the minimal image.
-- `psyb0t/pibox:latest-full` starts from the immutable `aicodebox:v0.15.1-full` base, then adds Pi and pibox. It carries the shared development toolchain without rebuilding it in this repository.
+- `psyb0t/pibox:latest-full` starts from the immutable `aicodebox:v0.16.0-full` base, then adds Pi and pibox. It carries the shared development toolchain without rebuilding it in this repository.
 
 ## Modes
 

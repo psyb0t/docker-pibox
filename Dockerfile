@@ -4,7 +4,7 @@
 #   docker build -t aicodebox-base:local ../docker-aicodebox/
 #   docker build --build-arg BASE_IMAGE=aicodebox-base:local -t pibox:local .
 #
-# Minimal base pinned to the aicodebox v0.15.1 multi-architecture manifest.
+# Minimal base pinned to the aicodebox v0.16.0 multi-architecture manifest.
 # v0.14.6 adds independent native event retention through `eventMode`
 # while keeping schema validation, usage, session data, and raw output
 # as separate response controls.
@@ -61,7 +61,7 @@
 #   - smarter JSON extraction (fenced-in-prose, brace-balanced) (v0.8.0)
 #   - reconstruction-grade logging on the schema-mode path (v0.8.2)
 #   - single-source __version__ via importlib.metadata (v0.8.3)
-ARG BASE_IMAGE=psyb0t/aicodebox:v0.15.1@sha256:624f1014fd65c191ffc1730d35778a045d8612661bbe4848bbeba0e0a3f9f50f
+ARG BASE_IMAGE=psyb0t/aicodebox:v0.16.0@sha256:66f4f9cf8a97ece9c8633722cf5d6f410fd8ef600586dc3abbcfa658feb2c8d0
 FROM ${BASE_IMAGE}
 
 # MCP Registry ownership label.

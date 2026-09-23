@@ -4,6 +4,11 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.18.4, 2026-09-23
+
+- Rebuilds both variants on digest-pinned Aicodebox `v0.16.0`.
+- The new base adds the opt-in `stream_options.include_aicodebox_events` option for streaming chat completions. It sends native Pi records as named `aicodebox.native` SSE events. Standard OpenAI chunks are unchanged.
+
 ## v0.18.3, 2026-09-14
 
 - Documents the wrapper-first path for interactive, one-shot, full-image, and
