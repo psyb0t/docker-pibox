@@ -35,7 +35,7 @@ docker run -d --network host \
 | `DELETE` | `/files/{path}` | delete a file (refuses directories — 400) |
 | `POST` | `/openai/v1/chat/completions` | OpenAI-compatible (streaming + non-streaming; supports `tools` / `tool_choice` client-executed tool calling, composable with `response_format`) |
 | `GET` | `/openai/v1/models` | model list |
-| `POST` | `/mcp` | MCP server (streamable HTTP) — mounted only when `PIBOX_MCP_MODE=1`. See [mcp.md](mcp.md) |
+| `POST` | `/mcp/` | MCP server (streamable HTTP) — mounted only when `PIBOX_MCP_MODE=1`. Slashless `/mcp` reaches the same handler. See [mcp.md](mcp.md) |
 
 All `/files/*` paths are resolved against the workspace root with traversal checking — `..` segments that escape the root return 400. Same `Authorization: Bearer ...` token gates them as the rest of the API.
 
@@ -89,4 +89,4 @@ curl -s http://localhost:8080/run \
 
 ## Combined with MCP mode
 
-API mode is the one foreground mode where MCP costs nothing extra — it mounts at `/mcp` on this same port instead of spawning a sidecar. See [mcp.md](mcp.md).
+API mode is the one foreground mode where MCP costs nothing extra — it mounts at `/mcp/` on this same port instead of spawning a sidecar. See [mcp.md](mcp.md).

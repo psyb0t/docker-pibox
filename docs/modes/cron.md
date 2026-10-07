@@ -38,9 +38,13 @@ The schedule field is 6-field (seconds first), so `"0 0 9 * * 1-5"` is 09:00:00 
 
 ## Run history
 
-Each run gets a history dir at `$HOME/.aicodebox/cron/history/<workspace>/<timestamp>-<job>/` with `meta.json`, `stdout.log`, `stderr.log`, `result.txt`. If telegram is configured, `telegram.json` lands there too and the next run's prompt gets a "prior run" hint so pi can reference its own history without you wiring it up.
+`PIBOX_CRON_MODE_HISTORY_DIR` (default `$HOME/.aicodebox/cron`) is the whole cron state root. Each run gets a history dir under `<root>/history/<workspace>/<timestamp>-<job>/` with `meta.json`, `stdout.log`, `stderr.log`, `result.txt`. If telegram is configured, `telegram.json` lands there too and the next run's prompt gets a "prior run" hint so pi can reference its own history without you wiring it up. A per-job summary jsonl is appended at `<root>/<job>.jsonl`.
 
-That path is fixed — the scheduler builds it from `$HOME` and does not read `PIBOX_CRON_MODE_HISTORY_DIR`. To relocate run history, mount a volume at `$HOME/.aicodebox/cron`. The env var exists for a narrower job: it tells the telegram bot which directory to read `telegram_messages.json` from, and only matters when telegram and cron run in the same container.
+Setting the env var moves the whole root, including run history, job summaries, and the telegram reply bridge's `telegram_messages.json`. Do not point it at the `history` child directory.
+
+## Notifications
+
+A job with `telegram_chat_id` set sends its result to that chat when it finishes. It requires telegram mode to also be configured (see below). Setting a job's `telegram_chat_id` to `0` opts it out of an inherited default. A successful job with an explicit recipient notifies even when its result text is empty; a failed job sends a failure notice.
 
 ## Cron mode environment variables
 
@@ -48,7 +52,7 @@ That path is fixed — the scheduler builds it from `$HOME` and does not read `P
 |-----|---------|--------------|
 | `PIBOX_CRON_MODE` | `0` | Boot the cron scheduler (foreground; in-thread when telegram is also on) |
 | `PIBOX_CRON_MODE_FILE` | — | Path to the cron yaml |
-| `PIBOX_CRON_MODE_HISTORY_DIR` | `~/.aicodebox/cron` | Directory the **telegram bot** reads the cron→telegram message inbox (`telegram_messages.json`) from. It does **not** move where the scheduler writes run history — see below |
+| `PIBOX_CRON_MODE_HISTORY_DIR` | `~/.aicodebox/cron` | Cron state root; run history, job summaries, and the telegram reply bridge's message inbox all live under it |
 
 > Every `PIBOX_*` variable is an alias for the `AICODEBOX_*` equivalent read by the base image. If both are set, `AICODEBOX_*` wins.
 

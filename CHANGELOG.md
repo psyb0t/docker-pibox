@@ -4,6 +4,15 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.19.0, 2026-10-07
+
+- Rebuilds both variants on digest-pinned Aicodebox `v0.17.0`, which also brings in the `v0.16.1` MCP and cron contract.
+- API-mode MCP is canonically at `/mcp/`; the slashless `/mcp` reaches the same handler without a redirect. Standalone MCP serves at the port root. The plugin bridge now connects to `/mcp/`.
+- MCP keeps DNS rebinding protection on. `PIBOX_MCP_MODE_ALLOWED_HOSTS` and `PIBOX_MCP_MODE_ALLOWED_ORIGINS` now reach the base, so a reverse proxy or public host name can be allowed by exact `Host` and `Origin`. Without them, MCP behind a proxy is rejected.
+- `PIBOX_CRON_MODE_HISTORY_DIR` is the whole cron state root (default `$HOME/.aicodebox/cron`): run artifacts under `history/`, per-job summaries, and Telegram reply metadata. A job can set `telegram_chat_id: 0` to opt out of a root notification target, and successful jobs with a configured recipient notify even when the result is empty.
+- Executables in `~/.aicodebox/bin` are on `PATH` ahead of everything else, for Pi in every mode, init scripts, and `docker exec` shells. `~/.aicodebox/init.d/*.sh` run once per container after the image's init scripts, as `aicode` with passwordless sudo.
+- The image's init script now runs in every new container instead of once per mounted state directory.
+
 ## v0.18.4, 2026-09-23
 
 - Rebuilds both variants on digest-pinned Aicodebox `v0.16.0`.

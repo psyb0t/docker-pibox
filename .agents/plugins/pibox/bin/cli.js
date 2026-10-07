@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // pibox MCP bridge. A thin stdio<->HTTP proxy: forwards MCP over stdio to a
-// running pibox server's Streamable-HTTP endpoint (`$PIBOX_URL/mcp`),
+// running pibox server's Streamable-HTTP endpoint (`$PIBOX_URL/mcp/`),
 // authenticating with `$PIBOX_MCP_MODE_TOKEN` when the server requires it.
 //
 // stdout IS the MCP protocol channel, so diagnostics go to stderr only — the
@@ -11,7 +11,7 @@ import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
 
-const MCP_PATH = "/mcp";
+const MCP_PATH = "/mcp/";
 
 const base = process.env.PIBOX_URL;
 

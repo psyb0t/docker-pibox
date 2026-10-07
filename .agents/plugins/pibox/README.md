@@ -4,7 +4,7 @@ An OpenClaw/MCP plugin that connects your agent to a self-hosted
 [pibox](https://github.com/psyb0t/docker-pibox) (pi-coding-agent on the
 network) server over the [Model Context Protocol](https://modelcontextprotocol.io).
 
-pibox already serves a Streamable-HTTP MCP endpoint at `/mcp` when
+pibox already serves a Streamable-HTTP MCP endpoint at `/mcp/` when
 `PIBOX_MCP_MODE=1` is set on the server. This package is a thin stdio↔HTTP
 bridge (via [`mcp-remote`](https://www.npmjs.com/package/mcp-remote)) for MCP
 clients that speak local stdio servers — it forwards everything to your
@@ -32,7 +32,7 @@ PIBOX_MCP_MODE_TOKEN=your-mcp-token \
 pibox
 ```
 
-The plugin connects to `http://localhost:8080/mcp`. It does not launch the
+The plugin connects to `http://localhost:8080/mcp/`. It does not launch the
 container for you. See the repository README for a remote deployment.
 
 ## Tools
@@ -47,7 +47,7 @@ pi-coding-agent on a workspace and get its textual response — accepts
 
 | Env var | Required | Description |
 |---|---|---|
-| `PIBOX_URL` | yes | Base URL of your running pibox server, e.g. `http://localhost:8080`. The bridge appends `/mcp`. |
+| `PIBOX_URL` | yes | Base URL of your running pibox server, e.g. `http://localhost:8080`. The bridge appends `/mcp/`. |
 | `PIBOX_MCP_MODE_TOKEN` | no | Bearer token — only if the pibox server was started with `PIBOX_MCP_MODE_TOKEN` set. |
 
 ## Install
@@ -64,7 +64,7 @@ the plugin's environment.
 ## Native remote MCP (no install)
 
 If your MCP client already supports **remote** Streamable-HTTP servers, you
-don't need this bridge — point the client straight at `$PIBOX_URL/mcp` with
+don't need this bridge — point the client straight at `$PIBOX_URL/mcp/` with
 an `Authorization: Bearer <token>` header.
 
 ## License

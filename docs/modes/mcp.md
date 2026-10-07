@@ -6,8 +6,10 @@ MCP is the one mode that is not a foreground mode. It coexists with whatever els
 
 | Foreground | MCP placement |
 |---|---|
-| API mode (`PIBOX_API_MODE=1`) | mounted at `/mcp` on the API port — no extra process |
-| Telegram / Cron / passthrough | sidecar uvicorn on `PIBOX_MCP_MODE_PORT` (default `8081`) |
+| API mode (`PIBOX_API_MODE=1`) | mounted at `/mcp/` on the API port — no extra process |
+| Telegram / Cron / passthrough | sidecar uvicorn on `PIBOX_MCP_MODE_PORT` (default `8081`), serving at the port root `/` |
+
+The slashless `/mcp` spelling reaches the same handler as `/mcp/` without a redirect.
 
 ## Setup
 
@@ -35,7 +37,7 @@ services:
 
 Cron is the foreground process, so the container's lifetime follows the scheduler. MCP rides along in the background. Swap the cron flags for `PIBOX_TELEGRAM_MODE=1` and the same holds for the bot.
 
-In API mode you publish no second port — MCP is already at `/mcp` on the API port. See [api.md](api.md).
+In API mode you publish no second port — MCP is already at `/mcp/` on the API port. See [api.md](api.md).
 
 ## Tools
 
@@ -58,19 +60,32 @@ Two things that will bite you if you assume otherwise:
 - **Empty means no auth at all.** Not "no access" — open. Anyone who can reach the port gets `run_prompt`, and `run_prompt` runs code. Leave it unset only when the port is bound to loopback or an internal network.
 - **No fallback to `API_MODE_TOKEN`.** MCP has its own bearer; setting the API token does nothing for it.
 
+## Reverse proxies and public hosts
+
+MCP keeps DNS rebinding protection enabled. Loopback hosts and origins work by default. If a reverse proxy, tunnel, or public DNS name forwards MCP, allow the exact values it sends. A browser MCP client also needs its exact Origin, including the scheme.
+
+```dotenv
+PIBOX_MCP_MODE_ALLOWED_HOSTS=localhost,localhost:*,127.0.0.1,127.0.0.1:*,[::1],[::1]:*,mcp.example.net
+PIBOX_MCP_MODE_ALLOWED_ORIGINS=http://localhost:*,http://127.0.0.1:*,http://[::1]:*,https://mcp.example.net
+```
+
+An unexpected Host returns `421`, and an unexpected browser Origin returns `403`. Keep the port bound to loopback when a local proxy terminates TLS. Do not disable the protection or allow broad wildcards for an internet-facing endpoint.
+
 ## MCP mode environment variables
 
 | Var | Default | What it does |
 |-----|---------|--------------|
-| `PIBOX_MCP_MODE` | `0` | Expose MCP — mounted at `/mcp` in API mode, or as a sidecar elsewhere |
+| `PIBOX_MCP_MODE` | `0` | Expose MCP — mounted at `/mcp/` in API mode, or as a sidecar elsewhere |
 | `PIBOX_MCP_MODE_PORT` | `8081` | Port the sidecar MCP server binds to (ignored when mounted inside API) |
 | `PIBOX_MCP_MODE_TOKEN` | empty | Bearer token for MCP. Empty = no auth. **No fallback to `API_MODE_TOKEN`** |
+| `PIBOX_MCP_MODE_ALLOWED_HOSTS` | loopback hosts | Comma-separated MCP `Host` allowlist. Add each proxy host name |
+| `PIBOX_MCP_MODE_ALLOWED_ORIGINS` | loopback HTTP origins | Comma-separated MCP browser Origin allowlist. Add each proxy origin |
 
 > Every `PIBOX_*` variable is an alias for the `AICODEBOX_*` equivalent read by the base image. If both are set, `AICODEBOX_*` wins.
 
 ## Connecting a client
 
 ```bash
-claude mcp add --transport http pibox http://host:8081/mcp \
+claude mcp add --transport http pibox http://host:8081/ \
   --header "Authorization: Bearer some-long-random-string"
 ```

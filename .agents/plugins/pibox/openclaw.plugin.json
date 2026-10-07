@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "code-plugin",
   "summary": "Wire an OpenClaw agent to a self-hosted pibox (pi-coding-agent) server over MCP — run prompts and manage workspace files as tools.",
-  "description": "A thin stdio<->HTTP bridge that connects an MCP client (OpenClaw, Claude, Cursor, Codex, ...) to a running pibox instance's MCP endpoint (/mcp), exposing its 5 tools: run_prompt (invoke pi-coding-agent on a workspace and get its text response), list_files, read_file, write_file, and delete_file. pibox is self-hosted — you run the server yourself (PIBOX_API_MODE=1 + PIBOX_MCP_MODE=1, or PIBOX_MCP_MODE=1 alone as a sidecar) and point this bridge at it. See https://github.com/psyb0t/docker-pibox.",
+  "description": "A thin stdio<->HTTP bridge that connects an MCP client (OpenClaw, Claude, Cursor, Codex, ...) to a running pibox instance's MCP endpoint (/mcp/), exposing its 5 tools: run_prompt (invoke pi-coding-agent on a workspace and get its text response), list_files, read_file, write_file, and delete_file. pibox is self-hosted — you run the server yourself (PIBOX_API_MODE=1 + PIBOX_MCP_MODE=1, or PIBOX_MCP_MODE=1 alone as a sidecar) and point this bridge at it. See https://github.com/psyb0t/docker-pibox.",
   "extensions": ["./bin/cli.js"],
   "compat": {
     "pluginApi": ">=2026.3.24-beta.2"
@@ -15,7 +15,7 @@
   "environment": {
     "PIBOX_URL": {
       "required": true,
-      "description": "Base URL of your running pibox server, e.g. http://localhost:8080 (the bridge appends /mcp)."
+      "description": "Base URL of your running pibox server, e.g. http://localhost:8080 (the bridge appends /mcp/)."
     },
     "PIBOX_MCP_MODE_TOKEN": {
       "required": false,
@@ -28,7 +28,7 @@
     "properties": {
       "url": {
         "type": "string",
-        "description": "Base URL of your running pibox server, e.g. http://localhost:8080 (the bridge appends /mcp)."
+        "description": "Base URL of your running pibox server, e.g. http://localhost:8080 (the bridge appends /mcp/)."
       },
       "token": {
         "type": "string",

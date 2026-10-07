@@ -115,13 +115,13 @@ manually mount another box's state directory.
 ## Image variants
 
 - `psyb0t/pibox:latest` is the minimal image.
-- `psyb0t/pibox:latest-full` starts from the immutable `aicodebox:v0.16.0-full` base, then adds Pi and pibox. It carries the shared development toolchain without rebuilding it in this repository.
+- `psyb0t/pibox:latest-full` starts from the immutable `aicodebox:v0.17.0-full` base, then adds Pi and pibox. It carries the shared development toolchain without rebuilding it in this repository.
 
 ## Modes
 
 **Foreground modes** (API / Telegram / Cron) are mutually exclusive — except `PIBOX_TELEGRAM_MODE=1` + `PIBOX_CRON_MODE=1`, which run together (cron in-thread inside telegram). API wins if set alongside anything else.
 
-**MCP mode** (`PIBOX_MCP_MODE=1`) is independent — it coexists with whatever foreground mode is running. In API mode it's mounted at `/mcp` on the API port; in other modes it runs as a sidecar uvicorn on its own port.
+**MCP mode** (`PIBOX_MCP_MODE=1`) is independent — it coexists with whatever foreground mode is running. In API mode it's mounted at `/mcp/` on the API port (slashless `/mcp` reaches the same handler); in other modes it runs as a sidecar uvicorn on its own port, serving at the port root.
 
 Each mode has its own page with full setup, env vars, and examples.
 
@@ -158,7 +158,7 @@ environment:
 
 ### [MCP Mode →](docs/modes/mcp.md)
 
-Exposes `run_prompt` plus workspace-confined file tools over streamable HTTP, so other agents can drive pi as a tool. Coexists with any foreground mode — mounted at `/mcp` on the API port in API mode, a sidecar on its own port everywhere else.
+Exposes `run_prompt` plus workspace-confined file tools over streamable HTTP, so other agents can drive pi as a tool. Coexists with any foreground mode — mounted at `/mcp/` on the API port in API mode, a sidecar on its own port everywhere else.
 
 ```yaml
 environment:
@@ -181,7 +181,7 @@ Set the upstream endpoint URL, protocol, API key or token, and model with [LLM p
 | `PIBOX_API_MODE` | `0` | Boot the HTTP API server (foreground) |
 | `PIBOX_TELEGRAM_MODE` | `0` | Boot the Telegram bot (foreground) |
 | `PIBOX_CRON_MODE` | `0` | Boot the cron scheduler (foreground; in-thread when telegram is also on) |
-| `PIBOX_MCP_MODE` | `0` | Expose MCP — mounted at `/mcp` in API mode, or as a sidecar elsewhere |
+| `PIBOX_MCP_MODE` | `0` | Expose MCP — mounted at `/mcp/` in API mode, or as a sidecar elsewhere |
 
 Each mode's own knobs (ports, tokens, config paths, history dirs) live on that mode's page: [api.md](docs/modes/api.md), [telegram.md](docs/modes/telegram.md), [cron.md](docs/modes/cron.md), [mcp.md](docs/modes/mcp.md).
 
@@ -209,6 +209,11 @@ Automation can install the wrapper in another command directory with
 versioned `AICODEBOX_HOST_*` nested-launch context. It uses those host paths as
 Docker bind sources, makes available sibling wrappers, and applies shared
 `AICODEBOX_ENV_*` and `AICODEBOX_MOUNT_*` values to the child container.
+
+Under `PIBOX_STATE_DIR` (`~/.aicodebox` by default):
+
+- Executables placed in `bin/` are on `PATH` ahead of everything else, for pi in every mode, for init scripts, and for `docker exec` shells.
+- Scripts placed in `init.d/*.sh` run once per container, after the image's own init scripts, as `aicode` with passwordless sudo. A failing script is logged and the rest still run. A new container runs them again, so make them safe to repeat.
 
 ## Auth
 
@@ -259,7 +264,7 @@ openclaw skills install @psyb0t/pibox
 ```
 
 For MCP clients that speak local stdio, the [`@psyb0t/pibox`](.agents/plugins/pibox) plugin
-bridges to the service's `/mcp` endpoint:
+bridges to the service's `/mcp/` endpoint:
 
 ```bash
 openclaw plugins install clawhub:@psyb0t/pibox

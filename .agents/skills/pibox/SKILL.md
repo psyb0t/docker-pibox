@@ -57,7 +57,7 @@ choose another approach.
 ## Security & safety
 
 - **No auth when `PIBOX_API_MODE_TOKEN` is unset.** With it empty the REST/OpenAI-compatible API surface is UNAUTHENTICATED — anyone who can reach it gets full agent-execution and workspace file-read/write/delete access. NEVER expose such an instance on a network or to untrusted agents; set the token and bind to loopback / behind an authenticating proxy.
-- **No auth when `PIBOX_MCP_MODE_TOKEN` is unset.** Same story for the MCP surface (`/mcp` or the sidecar) — empty token means unauthenticated `run_prompt`/file-tool access, and it does not fall back to `PIBOX_API_MODE_TOKEN`. Set it explicitly.
+- **No auth when `PIBOX_MCP_MODE_TOKEN` is unset.** Same story for the MCP surface (`/mcp/` or the sidecar) — empty token means unauthenticated `run_prompt`/file-tool access, and it does not fall back to `PIBOX_API_MODE_TOKEN`. Set it explicitly.
 - **Destructive & irreversible.** `DELETE /run/{id}`, `DELETE /files/{path}`, and the MCP `delete_file` tool remove state with no undo (canceled runs can't be resumed; deleted files are gone). An agent must NEVER call these unless the user explicitly asked for that exact action; confirm the specific target first, scope it to the current task, and never enumerate-then-bulk-delete. On a shared/multi-tenant instance a deletion can destroy another caller's in-flight run or workspace file — treat these routes as admin-only.
 
 ## When To Use
@@ -127,7 +127,7 @@ docker run -d --network host \
 | `DELETE` | `/files/{path}` | delete a file (refuses directories — 400) |
 | `POST` | `/openai/v1/chat/completions` | OpenAI-compatible chat (see below) |
 | `GET` | `/openai/v1/models` | model list, from `PIBOX_AVAILABLE_MODELS` |
-| `POST` | `/mcp` | MCP server (streamable HTTP) — mounted only when `PIBOX_MCP_MODE=1` |
+| `POST` | `/mcp/` | MCP server (streamable HTTP) — mounted only when `PIBOX_MCP_MODE=1`. Slashless `/mcp` reaches the same handler |
 
 All `/files/*` paths resolve against the workspace root with traversal checking — `..` segments that escape the root return 400. Every route except `/healthz` is gated by `Authorization: Bearer <PIBOX_API_MODE_TOKEN>` when that var is set; empty/unset token = no auth.
 
@@ -194,18 +194,18 @@ Extra `x-aicodebox-*` headers (workspace pinning, session continuation, extra ar
 
 | Foreground | MCP placement |
 |---|---|
-| API mode (`PIBOX_API_MODE=1`) | mounted at `/mcp` on the API port — no extra process |
+| API mode (`PIBOX_API_MODE=1`) | mounted at `/mcp/` on the API port — no extra process |
 | Telegram / Cron / passthrough / none | sidecar uvicorn on its own port, `PIBOX_MCP_MODE_PORT` (default `8081`), mounted at the port root |
 
 ```bash
-claude mcp add --transport http pibox http://localhost:8080/mcp \
+claude mcp add --transport http pibox http://localhost:8080/mcp/ \
   --header "Authorization: Bearer your-mcp-token"
 ```
 
 Raw JSON-RPC (debugging, non-MCP-aware callers):
 
 ```bash
-curl -s http://localhost:8080/mcp \
+curl -s http://localhost:8080/mcp/ \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
   -H "Authorization: Bearer your-mcp-token" \
@@ -219,6 +219,8 @@ curl -s http://localhost:8080/mcp \
 Auth: `PIBOX_MCP_MODE_TOKEN=<token>` — bearer via `Authorization: Bearer …`, or `?apiToken=…` query param for clients that can't set headers. Empty = no auth. **No fallback to `PIBOX_API_MODE_TOKEN`.**
 
 **No auth when `PIBOX_MCP_MODE_TOKEN` is unset.** With it empty the MCP surface is UNAUTHENTICATED — anyone who can reach it gets `run_prompt` (arbitrary agent execution) and workspace file read/write/delete access. NEVER expose such an instance on a network or to untrusted agents; set the token and bind to loopback / behind an authenticating proxy.
+
+MCP keeps DNS rebinding protection enabled. Loopback hosts and origins work by default; a reverse proxy, tunnel, or public DNS name needs its exact `Host` and browser `Origin` values allowed with `PIBOX_MCP_MODE_ALLOWED_HOSTS` and `PIBOX_MCP_MODE_ALLOWED_ORIGINS`, or MCP calls through it fail.
 
 ## Telegram bot mode
 
@@ -262,9 +264,9 @@ jobs:
     thinking: low
 ```
 
-Each run gets a history dir at `$HOME/.aicodebox/cron/history/<workspace>/<timestamp>-<job>/` (override root via `PIBOX_CRON_MODE_HISTORY_DIR`) with `meta.json`, `stdout.log`, `stderr.log`, `result.txt`. If telegram is also configured, `telegram.json` lands there too and the next run's prompt gets a "prior run" hint so pi can reference its own history without you wiring it up. Running alongside Telegram mode (`PIBOX_TELEGRAM_MODE=1` + `PIBOX_CRON_MODE=1`) runs cron in-thread inside the telegram process — the only foreground-mode pairing allowed.
+`PIBOX_CRON_MODE_HISTORY_DIR` (default `$HOME/.aicodebox/cron`) is the whole cron state root. Each run gets a history dir at `<root>/history/<workspace>/<timestamp>-<job>/` with `meta.json`, `stdout.log`, `stderr.log`, `result.txt`. If telegram is also configured, `telegram.json` lands there too and the next run's prompt gets a "prior run" hint so pi can reference its own history without you wiring it up. A per-job summary jsonl is appended at `<root>/<job>.jsonl`. Running alongside Telegram mode (`PIBOX_TELEGRAM_MODE=1` + `PIBOX_CRON_MODE=1`) runs cron in-thread inside the telegram process — the only foreground-mode pairing allowed.
 
-Auth: none — this is a scheduled background job, not a request-driven surface. `telegram_chat_id` on a job routes its result through the (already-authenticated) Telegram bot if set.
+Auth: none — this is a scheduled background job, not a request-driven surface. `telegram_chat_id` on a job routes its result through the (already-authenticated) Telegram bot if set; setting it to `0` opts that job out of an inherited default. A successful job with an explicit recipient notifies even when its result text is empty; a failed job sends a failure notice.
 
 ## Auth (LLM upstream)
 
@@ -314,7 +316,7 @@ curl -s http://localhost:8080/run -H "Authorization: Bearer $SECRET" \
 **Wire an MCP-aware agent (Claude Code, OpenClaw) to a running pibox:**
 
 ```bash
-claude mcp add --transport http pibox http://localhost:8080/mcp \
+claude mcp add --transport http pibox http://localhost:8080/mcp/ \
   --header "Authorization: Bearer $MCP_TOKEN"
 ```
 
