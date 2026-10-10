@@ -4,6 +4,10 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.19.1, 2026-10-10
+
+- Documentation only. The README's agent integrations section names [peen](https://github.com/psyb0t/peen) as an example of an agent that reads `.agents/skills/`.
+
 ## v0.19.0, 2026-10-07
 
 - Rebuilds both variants on digest-pinned Aicodebox `v0.17.0`, which also brings in the `v0.16.1` MCP and cron contract.
