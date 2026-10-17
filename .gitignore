@@ -44,3 +44,6 @@ coverage.out
 profile.out
 .cover/
 htmlcov/
+
+# Review receipt for the local release script.
+git-update.sh.debot
