@@ -4,6 +4,12 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.20.1, 2026-10-20
+
+- Keeps the remote installer's wrapper ref aligned with the release version. Version updates synchronize package, lockfile, plugin manifest, and installer ref without committing or tagging.
+- Applies `PIBOX_GIT_NAME` and `PIBOX_GIT_EMAIL` through the shared runtime startup path, with explicit Aicodebox values taking precedence.
+- Adds installer-ref and Git-identity regression checks and isolates wrapper tests from inherited host-launch settings.
+
 ## v0.20.0, 2026-10-19
 
 - Updates Pi to 1.1.0. Pi now defaults to a fullscreen terminal UI; set `tuiMode: "regular"` in Pi settings to keep scrollback. Azure configurations must rename the provider `azure-openai-responses` to `azure`.

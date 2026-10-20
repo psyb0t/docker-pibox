@@ -168,6 +168,10 @@ environment:
 
 ## Configuration
 
+Set `PIBOX_GIT_NAME` and `PIBOX_GIT_EMAIL` on the host to configure the runtime user's global Git identity before startup hooks. Direct container deployments accept the same names. Nonempty `AICODEBOX_GIT_NAME` and `AICODEBOX_GIT_EMAIL` inside the container take precedence; through the wrapper, supply those shared values as `AICODEBOX_ENV_AICODEBOX_GIT_NAME` and `AICODEBOX_ENV_AICODEBOX_GIT_EMAIL`. Empty settings preserve existing Git config. Multiline values are rejected.
+
+`make version V=X.Y.Z` synchronizes package metadata, lockfile, the Codex plugin manifest, and the installer's wrapper release ref without committing or tagging. Remote installs download the matching release wrapper unless `PIBOX_INSTALL_REF` overrides it. Updating an image does not update an installed wrapper.
+
 Naming convention: `PIBOX_<MODE>_MODE=1` is the on/off flag, `PIBOX_<MODE>_MODE_<KNOB>=...` is its config. Non-mode-scoped vars (workspace, container name, available models) are bare.
 
 The image is built on top of [aicodebox](https://github.com/psyb0t/docker-aicodebox), so the equivalent `AICODEBOX_*` names also work — the entrypoint translates `PIBOX_X` to `AICODEBOX_X` when only the pibox-prefixed one is set. If you set both, `AICODEBOX_*` wins.
