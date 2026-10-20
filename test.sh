@@ -15,6 +15,9 @@ mkdir -p "$TEST_LOG_DIR"
 source tests/common.sh
 
 for f in tests/test_*.sh; do
+    case "$f" in
+        tests/test_wrapper_install.sh) continue ;;
+    esac
     # shellcheck disable=SC1090
     source "$f"
 done

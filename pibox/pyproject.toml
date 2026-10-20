@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling==1.32.4"]
 build-backend = "hatchling.build"
 
 [project]
@@ -7,7 +7,7 @@ name = "pibox"
 # Canonical version source. The Makefile derives the docker tag from
 # this value; __init__.py reads it at runtime via importlib.metadata.
 # Bump THIS file ONCE per release; everything else follows.
-version = "0.19.1"
+version = "0.20.0"
 description = "pi-coding-agent adapter for aicodebox"
 license = { text = "WTFPL" }
 requires-python = ">=3.12"
@@ -25,11 +25,14 @@ packages = ["pibox"]
 # resolve locally. Docker builds don't use this — they build on the base image's
 # already-present aicodebox.
 dev = [
-    "pytest>=8.0",
-    "ruff>=0.6",
-    "pyright>=1.1.400",
+    "pytest==9.1.1",
+    "ruff==0.17.0",
+    "pyright==1.1.414",
     "aicodebox",
 ]
 
 [tool.uv.sources]
 aicodebox = { path = "../../docker-aicodebox", editable = true }
+
+[tool.uv]
+exclude-newer = "2026-10-12T00:00:00Z"

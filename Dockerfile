@@ -4,7 +4,7 @@
 #   docker build -t aicodebox-base:local ../docker-aicodebox/
 #   docker build --build-arg BASE_IMAGE=aicodebox-base:local -t pibox:local .
 #
-# Minimal base pinned to the aicodebox v0.16.0 multi-architecture manifest.
+# The minimal variant inherits the shared aicodebox base.
 # v0.14.6 adds independent native event retention through `eventMode`
 # while keeping schema validation, usage, session data, and raw output
 # as separate response controls.
@@ -61,14 +61,14 @@
 #   - smarter JSON extraction (fenced-in-prose, brace-balanced) (v0.8.0)
 #   - reconstruction-grade logging on the schema-mode path (v0.8.2)
 #   - single-source __version__ via importlib.metadata (v0.8.3)
-ARG BASE_IMAGE=psyb0t/aicodebox:v0.17.0@sha256:c75a87509d4cb40f18b85e883244c34bc77bca6e48519753b9658b25c6c31d2f
+ARG BASE_IMAGE=psyb0t/aicodebox:latest
 FROM ${BASE_IMAGE}
 
 # MCP Registry ownership label.
 LABEL io.modelcontextprotocol.server.name="io.github.psyb0t/pibox"
 
 # pi-coding-agent, pinned with lifecycle scripts disabled.
-ARG PI_VERSION=0.85.1
+ARG PI_VERSION=1.1.0
 RUN npm install -g --ignore-scripts --no-audit --no-fund \
     @earendil-works/pi-coding-agent@${PI_VERSION}
 

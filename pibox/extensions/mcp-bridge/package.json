@@ -5,6 +5,6 @@
   "description": "Bridge stdio MCP servers (declared in workspace .mcp.json) into pi as tools",
   "main": "index.ts",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "1.20.0"
+    "@modelcontextprotocol/sdk": "1.32.1"
   }
 }

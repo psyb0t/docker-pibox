@@ -4,6 +4,16 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.20.0, 2026-10-19
+
+- Updates Pi to 1.1.0. Pi now defaults to a fullscreen terminal UI; set `tuiMode: "regular"` in Pi settings to keep scrollback. Azure configurations must rename the provider `azure-openai-responses` to `azure`.
+- Native Pi JSON `message_update` events no longer carry cumulative message snapshots. Assemble their deltas and use `message_end` for the complete message. The HTTP adapter already follows this contract. Extension users should review [Pi's upstream migration notes](https://github.com/earendil-works/pi/blob/v1.1.0/packages/coding-agent/CHANGELOG.md).
+- Updates the MCP extension SDK to 1.32.1 and the plugin's mcp-remote bridge to 0.14.3. Pins the Python development tools and refreshes their lockfile.
+- Both image variants follow Aicodebox `latest` or `latest-full`, bringing Python 3.14.8 and Node 24.21.0. The full variant includes Go 1.27.2.
+- Test cleanup removes only containers registered by that test run. The E2E runner no longer sources the standalone wrapper installer test.
+- Default-branch pushes build both image variants and publish per-commit SHA tags. Release tags wait for that same commit's successful default-branch run, then promote its images without rebuilding and create the GitHub release from the annotated tag notes.
+- Spreads scheduled issue polling across repository-specific hours.
+
 ## v0.19.1, 2026-10-10
 
 - Documentation only. The README's agent integrations section names [peen](https://github.com/psyb0t/peen) as an example of an agent that reads `.agents/skills/`.

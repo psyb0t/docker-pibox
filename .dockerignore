@@ -19,6 +19,7 @@ ANUSTIMES.md
 PLAN.md
 implplan.md
 git-update.sh
+git-update.sh.debot
 pyrightconfig.json
 __pycache__
 *.pyc

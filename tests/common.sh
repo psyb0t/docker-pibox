@@ -12,8 +12,8 @@ IMAGE="pibox:local"
 # in parallel, so the suite tests pibox on top of whatever the released
 # base ships. Override with PIBOX_BASE_IMAGE if you need to test against
 # a local fork of the base.
-BASE_IMAGE="${PIBOX_BASE_IMAGE:-psyb0t/aicodebox:v0.17.0@sha256:c75a87509d4cb40f18b85e883244c34bc77bca6e48519753b9658b25c6c31d2f}"
-CONTAINER_PREFIX="pibox-test"
+BASE_IMAGE="${PIBOX_BASE_IMAGE:-psyb0t/aicodebox:latest}"
+CONTAINER_PREFIX="pibox-test-$$"
 TEST_PROVIDER_NAME="pibox-e2e"
 WORKDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 EXTRA_CONTAINERS=()
@@ -148,11 +148,16 @@ setup() {
 }
 
 _sweep_test_containers() {
-    local names
-    names=$(docker ps -a --filter "name=^${CONTAINER_PREFIX}-" --format '{{.Names}}' 2>/dev/null)
-    if [ -n "$names" ]; then
-        echo "$names" | xargs -r docker rm -f >/dev/null 2>&1 || true
-    fi
+    local name
+    for name in "${EXTRA_CONTAINERS[@]}"; do
+        if [[ "$name" != "$CONTAINER_PREFIX-"* ]]; then
+            printf 'refusing cleanup outside this test run: %s\n' "$name" >&2
+            return 1
+        fi
+        if docker container inspect "$name" >/dev/null 2>&1; then
+            docker container rm -f "$name" >/dev/null || return 1
+        fi
+    done
 }
 
 cleanup() {

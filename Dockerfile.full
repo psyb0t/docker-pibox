@@ -2,14 +2,14 @@
 #
 # Generic development tooling belongs to aicodebox. This image adds only Pi,
 # the pibox adapter, and pibox startup behavior.
-ARG BASE_IMAGE=psyb0t/aicodebox:v0.17.0-full@sha256:b217c509b18a04c4d9bf370d46dee4053c49fbdf872c8075b9a888ecd9eec9d9
+ARG BASE_IMAGE=psyb0t/aicodebox:latest-full
 FROM ${BASE_IMAGE}
 
 LABEL io.modelcontextprotocol.server.name="io.github.psyb0t/pibox"
 
 USER root
 
-ARG PI_VERSION=0.85.1
+ARG PI_VERSION=1.1.0
 RUN npm install -g --ignore-scripts --no-audit --no-fund \
     @earendil-works/pi-coding-agent@${PI_VERSION}
 
