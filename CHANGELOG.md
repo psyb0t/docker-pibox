@@ -4,6 +4,10 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.20.2, 2026-10-22
+
+- Refreshes the Aicodebox runtime to v0.18.2, including workspace and Docker socket identity collision fixes. Both variants continue to follow the shared `latest` and `latest-full` images.
+
 ## v0.20.1, 2026-10-20
 
 - Keeps the remote installer's wrapper ref aligned with the release version. Version updates synchronize package, lockfile, plugin manifest, and installer ref without committing or tagging.
