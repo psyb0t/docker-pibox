@@ -6,7 +6,7 @@
 #   KEEP_IMAGE=1 ./test.sh    # don't rmi pibox:local at the end
 set -u
 
-cd "$(dirname "$0")"
+cd "$(dirname "$0")" || exit 1
 
 export TEST_LOG_DIR="${TEST_LOG_DIR:-$(pwd)/tests/.logs}"
 mkdir -p "$TEST_LOG_DIR"
@@ -16,7 +16,7 @@ source tests/common.sh
 
 for f in tests/test_*.sh; do
     case "$f" in
-        tests/test_wrapper_install.sh) continue ;;
+        tests/test_wrapper_install.sh | tests/test_github_action.sh) continue ;;
     esac
     # shellcheck disable=SC1090
     source "$f"

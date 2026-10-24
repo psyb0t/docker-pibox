@@ -82,7 +82,15 @@ install-wrapper: ## Install the wrapper against an existing local image
 test-wrapper-install: ## Verify standalone and nested wrapper/install behavior without Docker
 	bash tests/test_wrapper_install.sh
 
-test: ## Run the full e2e test suite (needs .env.test)
+.PHONY: test-action
+test-action: ## Test the GitHub Action and native event handling without credentials
+	bash tests/test_github_action.sh
+
+.PHONY: test-action-provider-output
+test-action-provider-output: ## Verify provider startup leaves native stdout clean in a container
+	bash tests/action-provider-output.sh
+
+test: test-action ## Run the full e2e test suite (needs .env.test)
 	bash test.sh
 
 clean: ## Remove built images (keeps the published base)
@@ -95,5 +103,5 @@ help: ## Display this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
 .PHONY: test-unit
-test-unit: ## Run adapter unit tests with locked dependencies
+test-unit: test-action ## Run adapter and GitHub Action tests with locked dependencies
 	cd pibox && uv run --frozen python -m pytest tests/ -v

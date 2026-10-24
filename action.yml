@@ -1,0 +1,70 @@
+name: pibox
+description: Run Pi on read-only context, stream its activity, and collect generated files.
+author: psyb0t
+branding:
+  icon: box
+  color: orange
+inputs:
+  prompt:
+    description: Prompt text. Set this or prompt-file.
+    default: ""
+  prompt-file:
+    description: Prompt file relative to GITHUB_WORKSPACE, or an absolute path.
+    default: ""
+  context-path:
+    description: Directory mounted read-only at /context.
+    default: "."
+  output-path:
+    description: Separate writable output directory. Defaults to a unique directory under RUNNER_TEMP.
+    default: ""
+  provider-api-key:
+    description: Upstream API key or token.
+    required: true
+  provider-base-url:
+    description: Upstream HTTP base URL, including any API prefix.
+    required: true
+  provider-api:
+    description: openai-completions, openai-responses, anthropic-messages, or google-generative-ai.
+    default: openai-completions
+  model:
+    description: Upstream model ID.
+    required: true
+  thinking:
+    description: Optional Pi thinking level, off through max.
+    default: ""
+  image:
+    description: Pibox image. Defaults to the latest minimal image.
+    default: psyb0t/pibox:latest
+  stream:
+    description: Print readable live activity when output-format is json.
+    default: "true"
+  output-format:
+    description: json returns final text, text and stream-json return native stdout.
+    default: json
+outputs:
+  result:
+    description: Final assistant text for json, otherwise native stdout.
+    value: ${{ steps.run.outputs.result }}
+  output-path:
+    description: Absolute path of the generated-file directory.
+    value: ${{ steps.run.outputs.output-path }}
+runs:
+  using: composite
+  steps:
+    - name: Run pibox
+      id: run
+      shell: bash
+      env:
+        PIBOX_ACTION_PROMPT: ${{ inputs.prompt }}
+        PIBOX_ACTION_PROMPT_FILE: ${{ inputs.prompt-file }}
+        PIBOX_ACTION_CONTEXT: ${{ inputs.context-path }}
+        PIBOX_ACTION_OUTPUT: ${{ inputs.output-path }}
+        PIBOX_ACTION_API_KEY: ${{ inputs.provider-api-key }}
+        PIBOX_ACTION_BASE_URL: ${{ inputs.provider-base-url }}
+        PIBOX_ACTION_API: ${{ inputs.provider-api }}
+        PIBOX_ACTION_MODEL: ${{ inputs.model }}
+        PIBOX_ACTION_THINKING: ${{ inputs.thinking }}
+        PIBOX_ACTION_IMAGE: ${{ inputs.image }}
+        PIBOX_ACTION_STREAM: ${{ inputs.stream }}
+        PIBOX_ACTION_FORMAT: ${{ inputs.output-format }}
+      run: bash "$GITHUB_ACTION_PATH/scripts/github-action.sh"

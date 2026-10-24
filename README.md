@@ -23,6 +23,7 @@ You talk to pibox. pibox talks to pi. pi talks to whatever LLM you point it at. 
 - [LLM providers](docs/providers.md)
 - [Auth](#auth)
 - [Agent integrations](#agent-integrations)
+- [GitHub Action](docs/github-action.md)
 - [Development](#development)
 - [Tests](#tests)
 - [License](#license)
@@ -279,12 +280,15 @@ enabled).
 
 ## Development
 
+For one-shot GitHub jobs with read-only context, live tool logs, and collected output files, see the [GitHub Action](docs/github-action.md).
+
 ```bash
 make help   # list targets
 make build      # build the minimal image
 make build-full # build the full image from aicodebox full
 make build-all  # build both variants
 make test   # run the full e2e suite (needs .env.test)
+make test-action # test the GitHub Action contract without credentials
 make clean  # remove built images
 ```
 

@@ -1,0 +1,43 @@
+#!/bin/bash
+set -euo pipefail
+fixture_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+scenario="$(cat "$fixture_dir/scenario")"
+printf '%q ' "$@" >>"$fixture_dir/calls"
+printf '\n' >>"$fixture_dir/calls"
+case "$1" in
+container) exit 1 ;;
+pull)
+    [[ "$scenario" != pull-failure ]]
+    exit
+    ;;
+run) ;;
+*) exit 2 ;;
+esac
+case "$scenario" in
+text)
+    printf 'native text\n'
+    exit
+    ;;
+empty) exit ;;
+malformed)
+    printf 'not JSON\n'
+    exit
+    ;;
+missing-end)
+    printf '{"type":"session","id":"example"}\n'
+    exit
+    ;;
+esac
+printf '%s\n' \
+    '{"type":"session","id":"example"}' \
+    '{"type":"tool_execution_start","toolName":"bash","args":{"command":"printf example"}}' \
+    '{"type":"tool_execution_end","isError":false,"result":{"content":[{"type":"text","text":"tool result"}]}}' \
+    '{"type":"message_end","message":{"role":"assistant","content":[{"type":"text","text":"final Ω\n::warning::untrusted"}]}}'
+case "$scenario" in
+provider-error) printf '%s' '{"type":"agent_end","messages":[{"role":"assistant","stopReason":"error","content":[]}]}' ;;
+aborted) printf '%s' '{"type":"agent_end","messages":[{"role":"assistant","stopReason":"aborted","content":[]}]}' ;;
+no-assistant) printf '%s' '{"type":"agent_end","messages":[]}' ;;
+*) printf '%s' '{"type":"agent_end","messages":[{"role":"assistant","stopReason":"stop","content":[{"type":"text","text":"final Ω\n::warning::untrusted"}]}]}' ;;
+esac
+printf '\n'
+[[ "$scenario" != run-failure ]] || exit 7

@@ -4,6 +4,11 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.21.0, 2026-10-24
+
+- Adds a composite GitHub Action with read-only context, a separate output workspace, provider configuration, optional live tool logs, and final text or native output. Rejects malformed or failed Pi JSON runs and isolates per-job state.
+- Keeps provider startup diagnostics on stderr so native JSON streams remain parseable.
+
 ## v0.20.2, 2026-10-22
 
 - Refreshes the Aicodebox runtime to v0.18.2, including workspace and Docker socket identity collision fixes. Both variants continue to follow the shared `latest` and `latest-full` images.

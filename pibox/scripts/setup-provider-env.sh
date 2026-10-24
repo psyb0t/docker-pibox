@@ -51,7 +51,7 @@ on_error() {
 }
 
 trap on_error ERR
-exec > >(tee -a "$LOG_FILE") 2>&1
+exec > >(tee -a "$LOG_FILE" >&2) 2>&1
 
 fail() {
 	log ERROR "$1"
