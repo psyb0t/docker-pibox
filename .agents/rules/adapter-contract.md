@@ -12,4 +12,3 @@
 - `parse_events` returns every decoded object line unchanged. Callers rely on native Pi events, including thinking and tool events.
 - `parse_stream_event` emits only `session`, `delta` (from `text_delta`), `usage` (from `turn_end`) and `stop` (from `agent_end`). Thinking and tool deltas must not reach the stream.
 - `auth_paths` lists the Pi state the base preserves. Add a path there when Pi or the bootstrap starts writing a new state file.
-- Every behavior change gets a test in `pibox/tests/test_adapter.py`.
