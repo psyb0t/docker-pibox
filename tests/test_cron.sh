@@ -8,7 +8,7 @@ _cron_container_name() {
 
 # _cron_start <case> <yaml-content>
 # Writes yaml into a temp dir on the host, mounts it into the container at
-# /workspace/cron.yaml, starts detached. Sets CRON_CONTAINER + CRON_DIR.
+# /workspace/cron.yaml, starts detached. Sets CRON_CONTAINER.
 _cron_start() {
     local case_="$1"
     local yaml="$2"
@@ -36,7 +36,6 @@ _cron_start() {
     EXTRA_CONTAINERS+=("$cname")
 
     CRON_CONTAINER="$cname"
-    CRON_DIR="$hostdir"
 }
 
 # ── tests ────────────────────────────────────────────────────────────────────
@@ -75,8 +74,7 @@ jobs:
 EOF
 )
     _cron_start "fires" "$yaml"
-    local i
-    for i in $(seq 1 60); do
+    for _ in $(seq 1 60); do
         if docker exec "$CRON_CONTAINER" test -f /home/aicode/.aicodebox/cron/ping.jsonl 2>/dev/null; then
             break
         fi
@@ -112,8 +110,7 @@ jobs:
 EOF
 )
     _cron_start "writes" "$yaml"
-    local i
-    for i in $(seq 1 90); do
+    for _ in $(seq 1 90); do
         if docker exec "$CRON_CONTAINER" test -f /workspace/marker.txt 2>/dev/null; then
             break
         fi
@@ -142,8 +139,8 @@ jobs:
 EOF
 )
     _cron_start "multi" "$yaml"
-    local i ok_a=0 ok_b=0
-    for i in $(seq 1 90); do
+    local ok_a=0 ok_b=0
+    for _ in $(seq 1 90); do
         docker exec "$CRON_CONTAINER" test -f /home/aicode/.aicodebox/cron/a.jsonl 2>/dev/null && ok_a=1
         docker exec "$CRON_CONTAINER" test -f /home/aicode/.aicodebox/cron/b.jsonl 2>/dev/null && ok_b=1
         if [ "$ok_a" = 1 ] && [ "$ok_b" = 1 ]; then
@@ -158,7 +155,7 @@ EOF
     fi
     # Wait for each jsonl to actually contain its expected output, not just exist.
     local last_a last_b got_a=0 got_b=0
-    for i in $(seq 1 90); do
+    for _ in $(seq 1 90); do
         last_a=$(docker exec "$CRON_CONTAINER" sh -c 'tail -1 /home/aicode/.aicodebox/cron/a.jsonl 2>/dev/null' || true)
         last_b=$(docker exec "$CRON_CONTAINER" sh -c 'tail -1 /home/aicode/.aicodebox/cron/b.jsonl 2>/dev/null' || true)
         [[ "$last_a" == *"\"A\""* ]] && got_a=1

@@ -7,14 +7,34 @@ PKG        := pibox
 # one-offs: `VERSION=0.10.1-rc1 make build`.
 VERSION    ?= $(shell awk -F\" '/^version *= *"/ {print $$2; exit}' pibox/pyproject.toml)
 TAG        := v$(VERSION)
-# Default to the published base — override with `make build BASE_IMAGE=...`
+# Default to the published base. Override with `make build BASE_IMAGE=...`
 # if you need to test against a local fork of docker-aicodebox. Pin must
 # match the Dockerfile's ARG default so `make build` (which pulls then
 # builds) doesn't drift from a direct `docker build` invocation.
 BASE_IMAGE ?= psyb0t/aicodebox:latest
 FULL_BASE_IMAGE ?= psyb0t/aicodebox:latest-full
 
-.PHONY: all build build-full build-all install install-full install-wrapper pull-base pull-full-base test test-wrapper-install clean help version pkg-lock
+.PHONY: all build build-full build-all install install-full install-wrapper pull-base pull-full-base test test-wrapper-install clean help version pkg-lock lint lint-shell lint-python test-ci test-python docs
+
+# Lint and CI tests run their tools in containers, so a host needs only
+# Docker, Make, Bash and jq. The Python checks run in the published base
+# image, which already carries the aicodebox package the adapter imports.
+# Keep these pins in step with [dependency-groups] dev in pibox/pyproject.toml.
+PY_DEV_TOOLS     := pytest==9.1.1 ruff==0.17.0 pyright==1.1.414
+SHELLCHECK_IMAGE ?= koalaman/shellcheck:v0.11.0
+SHELL_SOURCES    := $(shell find . -name '*.sh' -not -path './.*' -not -path '*/node_modules/*' -not -path '*/.venv/*' -not -name git-update.sh | sort) tests/fixtures/action/docker
+DOCS_SITE        ?= .testing/docs-site
+
+# $(call py_dev_run,<command>) runs <command> in pibox/ inside the base image
+# with the repository mounted read-only.
+define py_dev_run
+docker run --rm --entrypoint bash \
+	-e PYTHONDONTWRITEBYTECODE=1 \
+	-v "$(CURDIR):/src:ro" -w /src/pibox \
+	$(BASE_IMAGE) -c 'set -euo pipefail; \
+		uv pip install --system --break-system-packages --quiet $(PY_DEV_TOOLS); \
+		$(1)'
+endef
 
 all: build ## Build the pibox image on top of the published base
 
@@ -42,7 +62,7 @@ pkg-lock: ## Refresh the Python lockfile under the current dependency pins
 
 pull-base: ## Pull the published aicodebox base image (SKIP_BASE_PULL=1 to use a locally-built base)
 	@if [ "$${SKIP_BASE_PULL:-0}" = "1" ]; then \
-		echo "[make] SKIP_BASE_PULL=1 — using local $(BASE_IMAGE)"; \
+		echo "[make] SKIP_BASE_PULL=1, using local $(BASE_IMAGE)"; \
 		docker image inspect $(BASE_IMAGE) >/dev/null 2>&1 \
 			|| { echo "❌ SKIP_BASE_PULL=1 but $(BASE_IMAGE) not found locally" >&2; exit 1; }; \
 	else \
@@ -93,6 +113,35 @@ test-action-provider-output: ## Verify provider startup leaves native stdout cle
 test: test-action ## Run the full e2e test suite (needs .env.test)
 	bash test.sh
 
+lint: lint-shell lint-python ## Run shellcheck, ruff and pyright in containers
+
+lint-shell: ## Run shellcheck on every shell script
+	docker run --rm -v "$(CURDIR):/mnt:ro" -w /mnt $(SHELLCHECK_IMAGE) \
+		--external-sources --source-path=SCRIPTDIR $(SHELL_SOURCES)
+
+lint-python: ## Run ruff and pyright on the adapter inside the base image
+	$(call py_dev_run,ruff check --no-cache . && pyright pibox tests)
+
+test-python: ## Run the adapter unit tests inside the base image
+	$(call py_dev_run,python3 -m pytest -p no:cacheprovider tests/ -v)
+
+test-ci: test-python test-wrapper-install test-action test-entrypoint-identity test-action-provider-output ## Run every offline, credential-free test (what CI runs)
+
+# Builds docs/ with the image GitHub Pages uses, so the local result matches
+# the published site. The output directory is gitignored.
+docs: ## Build the documentation site into .testing/docs-site
+	@mkdir -p "$(DOCS_SITE)"
+	docker run --rm \
+		--user "$$(id -u):$$(id -g)" \
+		-e HOME=/tmp \
+		-e GITHUB_WORKSPACE=/work \
+		-e GITHUB_REPOSITORY=psyb0t/docker-pibox \
+		-e INPUT_SOURCE=docs \
+		-e INPUT_DESTINATION="$(DOCS_SITE)" \
+		-e INPUT_VERBOSE=false \
+		-v "$(CURDIR):/work" \
+		ghcr.io/actions/jekyll-build-pages:v1.0.13@sha256:6791ebfd912185ed59bfb5fb102664fa872496b79f87ff8b9cfba292a7345041
+
 clean: ## Remove built images (keeps the published base)
 	docker rmi $(IMAGE_NAME):$(TAG) 2>/dev/null || true
 	docker rmi $(IMAGE_NAME):latest 2>/dev/null || true
@@ -103,5 +152,5 @@ help: ## Display this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
 .PHONY: test-unit
-test-unit: test-action ## Run adapter and GitHub Action tests with locked dependencies
+test-unit: test-action ## Run adapter and GitHub Action tests with locked dependencies (needs a sibling docker-aicodebox checkout)
 	cd pibox && uv run --frozen python -m pytest tests/ -v

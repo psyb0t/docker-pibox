@@ -115,9 +115,9 @@ print(d[0]["id"] if d else 0)'
 # Args: <baseline> <substr> [timeout]
 _ct_wait_for_bot_message() {
     local baseline="$1" substr="$2" timeout="${3:-120}"
-    local bot_id i resp
+    local bot_id resp
     bot_id=$(_ct_bot_user_id)
-    for i in $(seq 1 "$timeout"); do
+    for _ in $(seq 1 "$timeout"); do
         resp=$(_ct_curl "$CT_TELETHON_URL/api/messages?chat=$CT_BOT_REF&limit=30" 2>/dev/null) || { sleep 1; continue; }
         local hit
         hit=$(BASELINE="$baseline" BOT_ID="$bot_id" SUBSTR="$substr" RESP="$resp" python3 - <<'PY'

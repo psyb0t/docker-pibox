@@ -68,7 +68,7 @@ docker run -d --name pibox-tg \
   psyb0t/pibox:latest
 ```
 
-Requires a `telegram.yml` with at least `allowed_chats` set (see [Telegram bot mode](../SKILL.md#telegram-bot-mode)) — the bot ignores messages from chats not on the allowlist.
+Requires a `telegram.yml` with at least `allowed_chats` set (see [Telegram bot mode](../SKILL.md#telegram-bot-mode)). The bot ignores messages from chats not on the allowlist. With an empty or missing `allowed_chats` it answers every chat.
 
 ### Cron scheduler
 
@@ -110,13 +110,13 @@ services:
 
 `PIBOX_API_MODE`, `PIBOX_TELEGRAM_MODE`, `PIBOX_CRON_MODE` are the foreground modes. Priority order if multiple are set: API wins over everything. Telegram + Cron together is the one allowed pairing (cron runs in-thread inside the telegram process). If none are set, the container falls through to pi's own CLI (interactive shell, or one-shot exec if args are passed).
 
-`PIBOX_MCP_MODE` is independent of the above — it coexists with any foreground mode (mounted at `/mcp/` in API mode, sidecar elsewhere) or with none at all (sidecar only, no other surface reachable). The slashless `/mcp` spelling reaches the same handler; a standalone sidecar serves at its port root `/`.
+`PIBOX_MCP_MODE` is independent of the above. It coexists with any foreground mode (mounted at `/mcp/` in API mode, sidecar elsewhere) or with none at all (sidecar only, no other surface reachable). The slashless `/mcp` spelling reaches the same handler; a standalone sidecar serves at its port root `/`.
 
 ## Environment Variables
 
 Naming convention: `PIBOX_<MODE>_MODE=1` is the on/off flag, `PIBOX_<MODE>_MODE_<KNOB>=...` is its config. Non-mode-scoped vars (workspace, container name, available models) are bare `PIBOX_*`.
 
-The image is built on [aicodebox](https://github.com/psyb0t/docker-aicodebox); the equivalent `AICODEBOX_*` names also work — the entrypoint translates `PIBOX_X` to `AICODEBOX_X` when only the pibox-prefixed one is set. If both are set, `AICODEBOX_*` wins.
+The image is built on [aicodebox](https://github.com/psyb0t/docker-aicodebox); the equivalent `AICODEBOX_*` names also work. The entrypoint translates `PIBOX_X` to `AICODEBOX_X` when only the pibox-prefixed one is set. If both are set, `AICODEBOX_*` wins.
 
 ### Mode flags
 
@@ -125,20 +125,20 @@ The image is built on [aicodebox](https://github.com/psyb0t/docker-aicodebox); t
 | `PIBOX_API_MODE` | `0` | Boot the HTTP API server (foreground) |
 | `PIBOX_TELEGRAM_MODE` | `0` | Boot the Telegram bot (foreground) |
 | `PIBOX_CRON_MODE` | `0` | Boot the cron scheduler (foreground; in-thread when telegram is also on) |
-| `PIBOX_MCP_MODE` | `0` | Expose MCP — mounted at `/mcp/` in API mode, or as a sidecar elsewhere |
+| `PIBOX_MCP_MODE` | `0` | Expose MCP, mounted at `/mcp/` in API mode, or as a sidecar elsewhere |
 
 ### API mode config
 
 | Var | Default | What it does |
 |-----|---------|---------------|
 | `PIBOX_API_MODE_PORT` | `8080` | Port the API server binds to |
-| `PIBOX_API_MODE_TOKEN` | empty | Bearer token for the REST + OpenAI-compatible surface. Empty = no auth — see [Security & safety](../SKILL.md#security--safety) |
+| `PIBOX_API_MODE_TOKEN` | empty | Bearer token for the REST + OpenAI-compatible surface. Empty = no auth, see [Security & safety](../SKILL.md#security--safety) |
 
 ### Telegram mode config
 
 | Var | Default | What it does |
 |-----|---------|---------------|
-| `PIBOX_TELEGRAM_MODE_TOKEN` | — | Bot token from @BotFather (required) |
+| `PIBOX_TELEGRAM_MODE_TOKEN` | none | Bot token from @BotFather (required) |
 | `PIBOX_TELEGRAM_MODE_CONFIG` | `~/.aicodebox/telegram.yml` | Path to the telegram config yaml |
 | `PIBOX_TELEGRAM_MODE_OVERRIDES` | `~/.aicodebox/telegram_overrides.json` | Per-chat override store (model/effort/system prompts) |
 
@@ -146,7 +146,7 @@ The image is built on [aicodebox](https://github.com/psyb0t/docker-aicodebox); t
 
 | Var | Default | What it does |
 |-----|---------|---------------|
-| `PIBOX_CRON_MODE_FILE` | — | Path to the cron yaml (required) |
+| `PIBOX_CRON_MODE_FILE` | none | Path to the cron yaml (required) |
 | `PIBOX_CRON_MODE_HISTORY_DIR` | `~/.aicodebox/cron` | Cron state root. Per-run history dirs live under `<root>/history/<workspace>/<timestamp>-<job>/` (`meta.json`, `stdout.log`, `stderr.log`, `result.txt`, `telegram.json`); per-job summaries append to `<root>/<job>.jsonl` |
 
 ### MCP mode config
@@ -154,7 +154,7 @@ The image is built on [aicodebox](https://github.com/psyb0t/docker-aicodebox); t
 | Var | Default | What it does |
 |-----|---------|---------------|
 | `PIBOX_MCP_MODE_PORT` | `8081` | Port the sidecar MCP server binds to (ignored when mounted inside API mode) |
-| `PIBOX_MCP_MODE_TOKEN` | empty | Bearer token for MCP. Empty = no auth — see [Security & safety](../SKILL.md#security--safety). No fallback to `PIBOX_API_MODE_TOKEN` |
+| `PIBOX_MCP_MODE_TOKEN` | empty | Bearer token for MCP. Empty = no auth, see [Security & safety](../SKILL.md#security--safety). No fallback to `PIBOX_API_MODE_TOKEN` |
 | `PIBOX_MCP_MODE_ALLOWED_HOSTS` | loopback hosts | Comma-separated MCP `Host` allowlist for DNS-rebinding protection. Add each reverse-proxy host name |
 | `PIBOX_MCP_MODE_ALLOWED_ORIGINS` | loopback HTTP origins | Comma-separated MCP browser Origin allowlist. Add each reverse-proxy origin |
 
@@ -164,7 +164,7 @@ The image is built on [aicodebox](https://github.com/psyb0t/docker-aicodebox); t
 |-----|---------|---------------|
 | `PIBOX_WORKSPACE` | `/workspace` | Root workspace dir inside the container |
 | `PIBOX_CONTAINER_NAME` | `aicodebox` | Used to scope per-container state files in direct Docker runs. The host wrapper derives a per-workspace name. |
-| `PIBOX_AVAILABLE_MODELS` | — | **Required for API mode.** CSV list returned by `/openai/v1/models` and shown in the telegram `/model` picker. pibox registers every listed model with the upstream provider under `PIBOX_PROVIDER_API` |
+| `PIBOX_AVAILABLE_MODELS` | none | **Required for API mode.** CSV list returned by `/openai/v1/models` and shown in the telegram `/model` picker. pibox registers every listed model with the upstream provider under `PIBOX_PROVIDER_API` |
 | `PIBOX_AVAILABLE_EFFORTS` | adapter list (`off,minimal,low,medium,high,xhigh`) | Override the effort/`--thinking` list shown by the telegram `/effort` picker (comma-separated) |
 
 Under the aicodebox state directory (`$HOME/.aicodebox`, mounted from `PIBOX_STATE_DIR` by the wrapper): executables in `bin/` are on `PATH` ahead of everything else, for pi in every mode, for init scripts, and for `docker exec` shells; scripts in `init.d/*.sh` run once per container, after the image's own `/aicodebox-init.d/*.sh`, as `aicode` with passwordless sudo, with a failing script logged and the rest still run.
@@ -203,7 +203,7 @@ For API mode, set `PIBOX_AVAILABLE_MODELS=your-model-id` too. Do not combine `PI
 | Var | Purpose |
 |-----|---------|
 | `ANTHROPIC_AUTH_TOKEN` | Bearer token (Z.AI, direct Anthropic, etc.) |
-| `ANTHROPIC_API_KEY` | Same thing — pi reads both |
+| `ANTHROPIC_API_KEY` | Used when `ANTHROPIC_AUTH_TOKEN` is empty |
 | `ANTHROPIC_BASE_URL` | Endpoint override (default `https://api.anthropic.com`) |
 | `ANTHROPIC_MODEL` | Default model when the caller doesn't specify one |
 
@@ -216,11 +216,11 @@ Non-standard `x-aicodebox-*` request headers extend `POST /openai/v1/chat/comple
 | `x-aicodebox-workspace` | Pin the run to a workspace subpath instead of the ephemeral/default one |
 | `x-aicodebox-continue` | `1`/`true`/`yes` to continue the most recent session in that workspace instead of starting fresh |
 | `x-aicodebox-append-system-prompt` | Append text to the system prompt |
-| `x-aicodebox-json-schema` | JSON-encoded schema — fallback for clients that can't set the standard `response_format` body field (body field wins if both are set) |
+| `x-aicodebox-json-schema` | JSON-encoded schema, a fallback for clients that can't set the standard `response_format` body field (body field wins if both are set) |
 | `x-aicodebox-resume` | Resume a specific session id |
-| `x-aicodebox-extra-args` | Extra pi CLI args — JSON array or comma-separated string |
+| `x-aicodebox-extra-args` | Extra pi CLI args, as a JSON array or comma-separated string |
 | `x-aicodebox-timeout-seconds` | Per-request run timeout |
-| `x-aicodebox-tools-allowlist` | Restrict pi's own internal tools — JSON array or comma-separated string |
+| `x-aicodebox-tools-allowlist` | Restrict pi's own internal tools, as a JSON array or comma-separated string |
 | `x-aicodebox-no-tools` | `1`/`true`/`yes` to disable pi's internal tools; in OpenAI-tools mode this is the override to re-enable them (send `0`) |
 
 ## Ports
@@ -230,7 +230,7 @@ Non-standard `x-aicodebox-*` request headers extend `POST /openai/v1/chat/comple
 | API/OAI/MCP-in-API | `8080` (`PIBOX_API_MODE_PORT`) | REST, `/openai/v1/*`, `/mcp/` (when `PIBOX_MCP_MODE=1`) |
 | MCP sidecar | `8081` (`PIBOX_MCP_MODE_PORT`) | MCP only, used when API mode is not the foreground |
 
-No ports are opened for Telegram, cron, interactive, or one-shot exec modes — they're outbound-only or container-boundary-trusted.
+No ports are opened for Telegram, cron, interactive, or one-shot exec modes. They're outbound-only or container-boundary-trusted.
 
 ## Management
 

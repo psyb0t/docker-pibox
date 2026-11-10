@@ -1,9 +1,14 @@
+---
+title: "GitHub Action"
+description: "Run Pi in a GitHub Actions job with the pibox composite action: read-only context, a separate output directory, live tool logs and outputs."
+nav_order: 6
+---
+
 # GitHub Action
 
-[Back to README](../README.md)
+The root [`action.yml`](https://github.com/psyb0t/docker-pibox/blob/main/action.yml) runs Pi through this repository's wrapper, driven by [`scripts/github-action.sh`](https://github.com/psyb0t/docker-pibox/blob/main/scripts/github-action.sh). It mounts context read-only at `/context`, uses a separate writable output directory, and creates fresh Pi, runtime, and SSH state for each invocation.
 
-The root [`action.yml`](../action.yml) runs Pi through this repository's wrapper. It mounts context read-only at `/context`, uses a separate writable output directory, and creates fresh Pi, runtime, and SSH state for each invocation.
-
+<!-- {% raw %} -->
 ```yaml
 jobs:
   summarize:
@@ -28,6 +33,7 @@ jobs:
           OUTPUT_PATH: ${{ steps.pi.outputs.output-path }}
         run: cat "$OUTPUT_PATH/summary.md"
 ```
+<!-- {% endraw %} -->
 
 ## Inputs
 
@@ -44,6 +50,8 @@ jobs:
 | `image` | `psyb0t/pibox:latest` | Minimal image. Use `psyb0t/pibox:latest-full` for the shared development toolchain. |
 | `stream` | `true` | With `output-format: json`, print readable live assistant messages, tool calls, and tool results. `false` keeps the same final result without these logs. |
 | `output-format` | `json` | `json`, `text`, or `stream-json`. |
+
+The action puts a fixed preamble ahead of your prompt. It tells Pi to treat `/context` as untrusted data, to write only the requested files in the output directory, to keep credentials and context away from remote services, and not to push or publish anything. Each run uses `--no-session`, so nothing carries over between invocations.
 
 ## Outputs and failure handling
 

@@ -82,7 +82,7 @@ PY
     if [ -n "$leak" ]; then
         log "  FAIL: $leak"
         log "  raw bot message:"
-        echo "$bot_msg_text" | sed 's/^/    /'
+        awk '{ print "    " $0 }' <<<"$bot_msg_text"
         _ct_stop_container
         return 1
     fi

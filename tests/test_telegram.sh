@@ -108,9 +108,9 @@ print(d[0]["id"] if d else 0)'
 # Args: <baseline_id> <substr> [timeout]. Prints id\ntext on success.
 _tg_wait_for_bot_message() {
     local baseline="$1" substr="$2" timeout="${3:-120}"
-    local bot_id i resp
+    local bot_id resp
     bot_id=$(_tg_bot_user_id)
-    for i in $(seq 1 "$timeout"); do
+    for _ in $(seq 1 "$timeout"); do
         resp=$(_tg_curl "$TG_TELETHON_URL/api/messages?chat=$TG_BOT_REF&limit=30" 2>/dev/null) || { sleep 1; continue; }
         local hit
         hit=$(BASELINE="$baseline" BOT_ID="$bot_id" SUBSTR="$substr" RESP="$resp" python3 - <<'PY'
@@ -223,7 +223,7 @@ if fails:
 print("OK: md_to_tg_html unit cases passed")
 ') 2>&1
     rc=$?
-    echo "$out" | sed 's/^/    /'
+    awk '{ print "    " $0 }' <<<"$out"
     if [ "$rc" != "0" ]; then
         log "  FAIL: md_to_tg_html unit (rc=$rc)"
         return 1
@@ -325,7 +325,7 @@ async def main():
 asyncio.run(main())
 ') 2>&1
     rc=$?
-    echo "$out" | sed 's/^/    /'
+    awk '{ print "    " $0 }' <<<"$out"
     if [ "$rc" != "0" ]; then
         log "  FAIL: send_long chunking (rc=$rc)"
         return 1

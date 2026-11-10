@@ -1,0 +1,51 @@
+title: docker-pibox
+tagline: pi-coding-agent in a container, with an API, MCP, Telegram and cron
+description: A Docker image that runs pi-coding-agent on the aicodebox base, with a host wrapper, an HTTP API with an OpenAI-compatible endpoint, an MCP server, a Telegram bot and a cron scheduler.
+lang: en
+url: https://psyb0t.github.io
+baseurl: /docker-pibox
+repository: psyb0t/docker-pibox
+author: Ciprian Mandache
+
+remote_theme: just-the-docs/just-the-docs@v0.12.0
+color_scheme: mocha
+
+plugins:
+  - jekyll-remote-theme
+  - jekyll-seo-tag
+  - jekyll-sitemap
+  - jekyll-relative-links
+  - jekyll-include-cache
+
+permalink: pretty
+
+relative_links:
+  enabled: true
+  collections: false
+
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default
+      seo:
+        type: TechArticle
+
+search:
+  heading_level: 3
+
+aux_links:
+  GitHub:
+    - https://github.com/psyb0t/docker-pibox
+aux_links_new_tab: true
+
+nav_external_links:
+  - title: Changelog
+    url: https://github.com/psyb0t/docker-pibox/blob/main/CHANGELOG.md
+
+gh_edit_link: true
+gh_edit_link_text: Edit this page on GitHub
+gh_edit_repository: https://github.com/psyb0t/docker-pibox
+gh_edit_branch: main
+gh_edit_source: docs
+gh_edit_view_mode: tree

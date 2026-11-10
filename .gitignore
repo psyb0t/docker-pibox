@@ -9,11 +9,10 @@
 .research_files/
 .agent_notes/
 .agent_knowledge/
-AGENTS.md
 CODEX.local.md
+*.local.json
 
 # Local tooling / scratch — never commit
-CLAUDE.md
 ANUSTIMES.md
 PLAN.md
 implplan.md

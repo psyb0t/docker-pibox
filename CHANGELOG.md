@@ -4,6 +4,13 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.21.1, 2026-11-10
+
+- Publishes the documentation at https://psyb0t.github.io/docker-pibox/ and moves the reference material out of the README into it. Fixes the README provider examples: the wrapper passes only `PIBOX_*` variables into the container, so provider settings use `PIBOX_PROVIDER_*` names or the `PIBOX_ENV_` prefix. Fixes the `/run` examples to use a relative workspace.
+- Documents that the Telegram bot answers every chat when no allowlist or `TELEGRAM_CHAT_ID` is set, that the `ANTHROPIC_*` provider path stores its token in `~/.pi/agent/models.json`, and that `.mcp.json` servers become Pi tools.
+- Runs shellcheck, ruff, pyright and the credential-free tests on every branch push, in containers.
+- Adds Buy Me a Coffee to the funding links, and commits `AGENTS.md` and the project rules in `.agents/rules/` for coding agents.
+
 ## v0.21.0, 2026-10-24
 
 - Adds a composite GitHub Action with read-only context, a separate output workspace, provider configuration, optional live tool logs, and final text or native output. Rejects malformed or failed Pi JSON runs and isolates per-job state.

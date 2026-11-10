@@ -56,9 +56,9 @@ choose another approach.
 
 ## Security & safety
 
-- **No auth when `PIBOX_API_MODE_TOKEN` is unset.** With it empty the REST/OpenAI-compatible API surface is UNAUTHENTICATED — anyone who can reach it gets full agent-execution and workspace file-read/write/delete access. NEVER expose such an instance on a network or to untrusted agents; set the token and bind to loopback / behind an authenticating proxy.
-- **No auth when `PIBOX_MCP_MODE_TOKEN` is unset.** Same story for the MCP surface (`/mcp/` or the sidecar) — empty token means unauthenticated `run_prompt`/file-tool access, and it does not fall back to `PIBOX_API_MODE_TOKEN`. Set it explicitly.
-- **Destructive & irreversible.** `DELETE /run/{id}`, `DELETE /files/{path}`, and the MCP `delete_file` tool remove state with no undo (canceled runs can't be resumed; deleted files are gone). An agent must NEVER call these unless the user explicitly asked for that exact action; confirm the specific target first, scope it to the current task, and never enumerate-then-bulk-delete. On a shared/multi-tenant instance a deletion can destroy another caller's in-flight run or workspace file — treat these routes as admin-only.
+- **No auth when `PIBOX_API_MODE_TOKEN` is unset.** With it empty the REST/OpenAI-compatible API surface is UNAUTHENTICATED: anyone who can reach it gets full agent-execution and workspace file-read/write/delete access. NEVER expose such an instance on a network or to untrusted agents; set the token and bind to loopback / behind an authenticating proxy.
+- **No auth when `PIBOX_MCP_MODE_TOKEN` is unset.** Same story for the MCP surface (`/mcp/` or the sidecar). An empty token means unauthenticated `run_prompt`/file-tool access, and it does not fall back to `PIBOX_API_MODE_TOKEN`. Set it explicitly.
+- **Destructive & irreversible.** `DELETE /run/{id}`, `DELETE /files/{path}`, and the MCP `delete_file` tool remove state with no undo (canceled runs can't be resumed; deleted files are gone). An agent must NEVER call these unless the user explicitly asked for that exact action; confirm the specific target first, scope it to the current task, and never enumerate-then-bulk-delete. On a shared/multi-tenant instance a deletion can destroy another caller's in-flight run or workspace file, so treat these routes as admin-only.
 
 ## When To Use
 
@@ -71,10 +71,10 @@ choose another approach.
 
 ## When NOT To Use
 
-- Don't run two foreground modes together except Telegram+Cron (cron runs in-thread inside telegram) — API set alongside anything else wins and the others don't start.
-- Don't expect `/openai/v1/chat/completions` to stream token-by-token when `tools` or a JSON schema is in play — those modes compute the full answer first and replay it as a single-shot SSE stream (still a valid stream, just not incremental). Plain chat streams incrementally.
-- Don't rely on `PIBOX_MCP_MODE_TOKEN` falling back to `PIBOX_API_MODE_TOKEN` — MCP has its own bearer, no fallback.
-- Don't point multiple concurrent runs at the same workspace — the API/OAI layer returns 409 "workspace busy" while a run is in flight in that workspace.
+- Don't run two foreground modes together except Telegram+Cron (cron runs in-thread inside telegram). API set alongside anything else wins and the others don't start.
+- Don't expect `/openai/v1/chat/completions` to stream token-by-token when `tools` or a JSON schema is in play. Those modes compute the full answer first and replay it as a single-shot SSE stream (still a valid stream, just not incremental). Plain chat streams incrementally.
+- Don't rely on `PIBOX_MCP_MODE_TOKEN` falling back to `PIBOX_API_MODE_TOKEN`. MCP has its own bearer, no fallback.
+- Don't point multiple concurrent runs at the same workspace. The API/OAI layer returns 409 "workspace busy" while a run is in flight in that workspace.
 
 ## Interactive shell mode
 
@@ -100,7 +100,7 @@ Any Pi CLI flag works here (`--model`, `--thinking`, `--session`, etc.). Auth: n
 
 ## REST API mode
 
-`PIBOX_API_MODE=1`. FastAPI server on `:8080` (override `PIBOX_API_MODE_PORT`). **Requires `PIBOX_AVAILABLE_MODELS=<csv>`** — the server refuses to boot without it (no sensible default; pi can drive any provider's models).
+`PIBOX_API_MODE=1`. FastAPI server on `:8080` (override `PIBOX_API_MODE_PORT`). **Requires `PIBOX_AVAILABLE_MODELS=<csv>`**: the server refuses to boot without it (no sensible default; pi can drive any provider's models).
 
 ```bash
 docker run -d --network host \
@@ -116,31 +116,31 @@ docker run -d --network host \
 
 | Method | Path | What it does |
 |--------|------|--------------|
-| `GET` | `/healthz` | liveness — `{ok, adapter}`, unauthenticated |
+| `GET` | `/healthz` | liveness, `{ok, adapter}`, unauthenticated |
 | `GET` | `/status` | in-flight runs + busy workspaces |
-| `POST` | `/run` | run the agent — sync by default; body `async` or `fireAndForget` makes it fire-and-poll |
+| `POST` | `/run` | run the agent, sync by default; body `async` or `fireAndForget` makes it fire-and-poll |
 | `GET` | `/run/result?runId=<id>` | poll a run started with `async`/`fireAndForget` |
 | `DELETE` | `/run/{id}` | cancel an in-flight run (kills the subprocess) |
-| `GET` | `/files` | list the workspace root — `{entries: [{name, type, size?}, ...]}` |
+| `GET` | `/files` | list the workspace root, `{entries: [{name, type, size?}, ...]}` |
 | `GET` | `/files/{path}` | list a sub-directory, or stream a file's bytes |
-| `PUT` | `/files/{path}` | upload — raw request body becomes the file contents; parent dirs auto-created |
-| `DELETE` | `/files/{path}` | delete a file (refuses directories — 400) |
+| `PUT` | `/files/{path}` | upload: raw request body becomes the file contents; parent dirs auto-created |
+| `DELETE` | `/files/{path}` | delete a file (refuses directories with 400) |
 | `POST` | `/openai/v1/chat/completions` | OpenAI-compatible chat (see below) |
 | `GET` | `/openai/v1/models` | model list, from `PIBOX_AVAILABLE_MODELS` |
-| `POST` | `/mcp/` | MCP server (streamable HTTP) — mounted only when `PIBOX_MCP_MODE=1`. Slashless `/mcp` reaches the same handler |
+| `POST` | `/mcp/` | MCP server (streamable HTTP), mounted only when `PIBOX_MCP_MODE=1`. Slashless `/mcp` reaches the same handler |
 
-All `/files/*` paths resolve against the workspace root with traversal checking — `..` segments that escape the root return 400. Every route except `/healthz` is gated by `Authorization: Bearer <PIBOX_API_MODE_TOKEN>` when that var is set; empty/unset token = no auth.
+All `/files/*` paths resolve against the workspace root with traversal checking: `..` segments that escape the root return 400. Every route except `/healthz` is gated by `Authorization: Bearer <PIBOX_API_MODE_TOKEN>` when that var is set; empty/unset token = no auth.
 
-**No auth when `PIBOX_API_MODE_TOKEN` is unset.** With it empty the API is UNAUTHENTICATED — anyone who can reach it gets run-the-agent and workspace file-read/write/delete access. NEVER expose such an instance on a network or to untrusted agents; set the token and bind to loopback / behind an authenticating proxy.
+**No auth when `PIBOX_API_MODE_TOKEN` is unset.** With it empty the API is UNAUTHENTICATED: anyone who can reach it gets run-the-agent and workspace file-read/write/delete access. NEVER expose such an instance on a network or to untrusted agents; set the token and bind to loopback / behind an authenticating proxy.
 
-**Destructive & irreversible.** `DELETE /run/{id}` kills the in-flight subprocess with no undo, and `DELETE /files/{path}` deletes a workspace file with no undo. An agent must NEVER call either unless the user explicitly asked for that exact action; confirm the specific target first; scope it to the current task; never enumerate-then-bulk-delete. On a shared/multi-tenant instance this can disrupt or destroy another caller's run or data — treat these routes as admin-only.
+**Destructive & irreversible.** `DELETE /run/{id}` kills the in-flight subprocess with no undo, and `DELETE /files/{path}` deletes a workspace file with no undo. An agent must NEVER call either unless the user explicitly asked for that exact action; confirm the specific target first; scope it to the current task; never enumerate-then-bulk-delete. On a shared/multi-tenant instance this can disrupt or destroy another caller's run or data, so treat these routes as admin-only.
 
 ```bash
 # sync run
 curl -s http://localhost:8080/run \
   -H "Authorization: Bearer your-secret" \
   -H "Content-Type: application/json" \
-  -d '{"prompt": "say HELLO", "workspace": "/workspace"}'
+  -d '{"prompt": "say HELLO", "workspace": "myproject"}'
 
 # async run, then poll
 RUN_ID=$(curl -s http://localhost:8080/run \
@@ -168,7 +168,7 @@ curl -sS -X DELETE -H "Authorization: Bearer your-secret" \
 
 ## OpenAI-compatible endpoint mode
 
-Same `PIBOX_API_MODE=1` server, `POST /openai/v1/chat/completions` and `GET /openai/v1/models`. Drop-in for any OpenAI-SDK client — point the base URL at `http://host:8080/openai/v1` and set the model to one of `PIBOX_AVAILABLE_MODELS`.
+Same `PIBOX_API_MODE=1` server, `POST /openai/v1/chat/completions` and `GET /openai/v1/models`. Drop-in for any OpenAI-SDK client: point the base URL at `http://host:8080/openai/v1` and set the model to one of `PIBOX_AVAILABLE_MODELS`.
 
 ```bash
 curl -s http://localhost:8080/openai/v1/chat/completions \
@@ -180,11 +180,11 @@ curl -s http://localhost:8080/openai/v1/chat/completions \
   }'
 ```
 
-**Streaming** (`"stream": true`): plain chat streams incrementally, one SSE chunk per token delta. Requests carrying `tools` or a JSON-schema constraint can't stream token-by-token (the answer only exists once fully computed) — they're **buffered**: the whole response is computed, then replayed as a single-shot SSE stream (role chunk → one content/tool_calls delta → finish chunk → `[DONE]`). The client's streaming parser is satisfied either way.
+**Streaming** (`"stream": true`): plain chat streams incrementally, one SSE chunk per token delta. Requests carrying `tools` or a JSON-schema constraint can't stream token-by-token (the answer only exists once fully computed), so they're **buffered**: the whole response is computed, then replayed as a single-shot SSE stream (role chunk → one content/tool_calls delta → finish chunk → `[DONE]`). The client's streaming parser is satisfied either way.
 
-**Tools / `tool_choice`** (OpenAI client-executed tool calling): send `tools` (OpenAI function-schema array) and optionally `tool_choice` (`auto`/`none`/`required`/`{"type":"function","function":{"name":...}}`). pibox's own internal tools (bash, file edits) default OFF while in tool mode so the model behaves as a pure function-calling LLM — override with header `x-aicodebox-no-tools: 0` to re-enable the hybrid. The response comes back as `tool_calls` + `finish_reason: "tool_calls"`, exactly like OpenAI; you execute the tool client-side and send the result back in the next message round.
+**Tools / `tool_choice`** (OpenAI client-executed tool calling): send `tools` (OpenAI function-schema array) and optionally `tool_choice` (`auto`/`none`/`required`/`{"type":"function","function":{"name":...}}`). pibox's own internal tools (bash, file edits) default OFF while in tool mode so the model behaves as a pure function-calling LLM. Override with header `x-aicodebox-no-tools: 0` to re-enable the hybrid. The response comes back as `tool_calls` + `finish_reason: "tool_calls"`, exactly like OpenAI; you execute the tool client-side and send the result back in the next message round.
 
-**`response_format` / JSON-schema**: standard OpenAI `response_format` body field —`{"type": "text"}` (default), `{"type": "json_object"}` (force parseable JSON, no shape constraint), or `{"type": "json_schema", "json_schema": {"name": ..., "schema": {...}}}` (schema-validated, with up to 3 self-correction retries on failure → 422 if still invalid). `tools` and `response_format` **compose** in one request: a tool-call turn returns `tool_calls` (not schema-checked); the model's final answer (no more tool calls) is what gets schema-validated.
+**`response_format` / JSON-schema**: standard OpenAI `response_format` body field: `{"type": "text"}` (default), `{"type": "json_object"}` (force parseable JSON, no shape constraint), or `{"type": "json_schema", "json_schema": {"name": ..., "schema": {...}}}` (schema-validated, with up to 3 self-correction retries on failure → 422 if still invalid). `tools` and `response_format` **compose** in one request: a tool-call turn returns `tool_calls` (not schema-checked); the model's final answer (no more tool calls) is what gets schema-validated.
 
 Extra `x-aicodebox-*` headers (workspace pinning, session continuation, extra args, timeout, tools allowlist) are documented in [references/setup.md](references/setup.md#openai-endpoint-headers). Upstream provider errors (auth failure, rate limit, content-safety rejection) surface as HTTP 400, not a silent empty response.
 
@@ -194,7 +194,7 @@ Extra `x-aicodebox-*` headers (workspace pinning, session continuation, extra ar
 
 | Foreground | MCP placement |
 |---|---|
-| API mode (`PIBOX_API_MODE=1`) | mounted at `/mcp/` on the API port — no extra process |
+| API mode (`PIBOX_API_MODE=1`) | mounted at `/mcp/` on the API port, no extra process |
 | Telegram / Cron / passthrough / none | sidecar uvicorn on its own port, `PIBOX_MCP_MODE_PORT` (default `8081`), mounted at the port root |
 
 ```bash
@@ -214,11 +214,11 @@ curl -s http://localhost:8080/mcp/ \
 
 `run_prompt(prompt, workspace?, model?, system_prompt?, append_system_prompt?, no_continue=true, resume?, thinking?, json_schema?)` invokes the agent and returns its text. `list_files`/`read_file`/`write_file`/`delete_file` operate on workspace-relative paths with the same traversal guard as the REST `/files` endpoints.
 
-**Destructive & irreversible.** `delete_file` removes a workspace file with no undo. An agent must NEVER call it unless the user explicitly asked for that exact action; confirm the specific target first; scope it to the current task; never enumerate-then-bulk-delete. On a shared/multi-tenant instance this can destroy another caller's workspace data — treat it as admin-only.
+**Destructive & irreversible.** `delete_file` removes a workspace file with no undo. An agent must NEVER call it unless the user explicitly asked for that exact action; confirm the specific target first; scope it to the current task; never enumerate-then-bulk-delete. On a shared/multi-tenant instance this can destroy another caller's workspace data, so treat it as admin-only.
 
-Auth: `PIBOX_MCP_MODE_TOKEN=<token>` — bearer via `Authorization: Bearer …`, or `?apiToken=…` query param for clients that can't set headers. Empty = no auth. **No fallback to `PIBOX_API_MODE_TOKEN`.**
+Auth: `PIBOX_MCP_MODE_TOKEN=<token>` as a bearer via `Authorization: Bearer ...`, or the `?apiToken=...` query param for clients that can't set headers. Empty = no auth. **No fallback to `PIBOX_API_MODE_TOKEN`.**
 
-**No auth when `PIBOX_MCP_MODE_TOKEN` is unset.** With it empty the MCP surface is UNAUTHENTICATED — anyone who can reach it gets `run_prompt` (arbitrary agent execution) and workspace file read/write/delete access. NEVER expose such an instance on a network or to untrusted agents; set the token and bind to loopback / behind an authenticating proxy.
+**No auth when `PIBOX_MCP_MODE_TOKEN` is unset.** With it empty the MCP surface is UNAUTHENTICATED: anyone who can reach it gets `run_prompt` (arbitrary agent execution) and workspace file read/write/delete access. NEVER expose such an instance on a network or to untrusted agents; set the token and bind to loopback / behind an authenticating proxy.
 
 MCP keeps DNS rebinding protection enabled. Loopback hosts and origins work by default; a reverse proxy, tunnel, or public DNS name needs its exact `Host` and browser `Origin` values allowed with `PIBOX_MCP_MODE_ALLOWED_HOSTS` and `PIBOX_MCP_MODE_ALLOWED_ORIGINS`, or MCP calls through it fail.
 
@@ -245,7 +245,7 @@ chats:
     allowed_users: [10, 20]
 ```
 
-Auth: chat/user allowlisting via the config yaml (`allowed_chats`, per-chat `allowed_users`) — no separate bearer token, the bot token itself gates who can even message it.
+Auth: chat/user allowlisting via the config yaml (`allowed_chats`, per-chat `allowed_users`). There is no separate bearer token, and the bot token only decides who can reach the bot. An empty or missing `allowed_chats` with no `TELEGRAM_CHAT_ID` lets every chat through, so always set it.
 
 ## Cron scheduler mode
 
@@ -264,9 +264,9 @@ jobs:
     thinking: low
 ```
 
-`PIBOX_CRON_MODE_HISTORY_DIR` (default `$HOME/.aicodebox/cron`) is the whole cron state root. Each run gets a history dir at `<root>/history/<workspace>/<timestamp>-<job>/` with `meta.json`, `stdout.log`, `stderr.log`, `result.txt`. If telegram is also configured, `telegram.json` lands there too and the next run's prompt gets a "prior run" hint so pi can reference its own history without you wiring it up. A per-job summary jsonl is appended at `<root>/<job>.jsonl`. Running alongside Telegram mode (`PIBOX_TELEGRAM_MODE=1` + `PIBOX_CRON_MODE=1`) runs cron in-thread inside the telegram process — the only foreground-mode pairing allowed.
+`PIBOX_CRON_MODE_HISTORY_DIR` (default `$HOME/.aicodebox/cron`) is the whole cron state root. Each run gets a history dir at `<root>/history/<workspace>/<timestamp>-<job>/` with `meta.json`, `stdout.log`, `stderr.log`, `result.txt`. If telegram is also configured, `telegram.json` lands there too and the next run's prompt gets a "prior run" hint so pi can reference its own history without you wiring it up. A per-job summary jsonl is appended at `<root>/<job>.jsonl`. Running alongside Telegram mode (`PIBOX_TELEGRAM_MODE=1` + `PIBOX_CRON_MODE=1`) runs cron in-thread inside the telegram process, the only foreground-mode pairing allowed.
 
-Auth: none — this is a scheduled background job, not a request-driven surface. `telegram_chat_id` on a job routes its result through the (already-authenticated) Telegram bot if set; setting it to `0` opts that job out of an inherited default. A successful job with an explicit recipient notifies even when its result text is empty; a failed job sends a failure notice.
+Auth: none. This is a scheduled background job, not a request-driven surface. `telegram_chat_id` on a job routes its result through the (already-authenticated) Telegram bot if set; setting it to `0` opts that job out of an inherited default. A successful job with an explicit recipient notifies even when its result text is empty; a failed job sends a failure notice.
 
 ## Auth (LLM upstream)
 
@@ -275,7 +275,7 @@ Use `PIBOX_PROVIDER_*` for Pi's documented custom HTTP APIs, including LiteLLM a
 | Var | Purpose |
 |-----|---------|
 | `ANTHROPIC_AUTH_TOKEN` | Bearer token (Z.AI, direct Anthropic, etc.) |
-| `ANTHROPIC_API_KEY` | Same thing — pi reads both |
+| `ANTHROPIC_API_KEY` | Used when `ANTHROPIC_AUTH_TOKEN` is empty |
 | `ANTHROPIC_BASE_URL` | Endpoint override (default `https://api.anthropic.com`) |
 | `ANTHROPIC_MODEL` | Default model when the caller doesn't specify one |
 
@@ -283,7 +283,7 @@ Z.AI's GLM models are a fast/cheap default: `ANTHROPIC_BASE_URL=https://api.z.ai
 
 pi's thinking levels (`--thinking`): `off`, `minimal`, `low`, `medium`, `high`, `xhigh`. Exposed as `/effort` in Telegram mode and `thinking` in API/OAI requests.
 
-**Surface-level auth** (separate from the LLM upstream) is per-mode: `PIBOX_API_MODE_TOKEN` gates the REST + OAI routes, `PIBOX_MCP_MODE_TOKEN` gates MCP (no fallback between the two), Telegram gates by bot-token possession + chat/user allowlist, cron and interactive/exec modes have no surface auth (container-boundary trust). Both `PIBOX_API_MODE_TOKEN` and `PIBOX_MCP_MODE_TOKEN` default to empty, which means no auth — see [Security & safety](#security--safety) above before exposing either surface beyond localhost.
+**Surface-level auth** (separate from the LLM upstream) is per-mode: `PIBOX_API_MODE_TOKEN` gates the REST + OAI routes, `PIBOX_MCP_MODE_TOKEN` gates MCP (no fallback between the two), Telegram gates by bot-token possession + chat/user allowlist, cron and interactive/exec modes have no surface auth (container-boundary trust). Both `PIBOX_API_MODE_TOKEN` and `PIBOX_MCP_MODE_TOKEN` default to empty, which means no auth. See [Security & safety](#security--safety) above before exposing either surface beyond localhost.
 
 ## Typical Workflows
 
