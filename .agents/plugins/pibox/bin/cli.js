@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // pibox MCP bridge. A thin stdio<->HTTP proxy: forwards MCP over stdio to a
-// running pibox server's Streamable-HTTP endpoint (`$PIBOX_URL/mcp/`),
-// authenticating with `$PIBOX_MCP_MODE_TOKEN` when the server requires it.
+// running pibox server's Streamable-HTTP endpoint, authenticating with
+// `$PIBOX_MCP_MODE_TOKEN` when the server requires it. The endpoint is
+// `$PIBOX_MCP_URL` used as given (a sidecar serves at its port root), else
+// `$PIBOX_URL/mcp/` (MCP mounted inside API mode).
 //
 // stdout IS the MCP protocol channel, so diagnostics go to stderr only. The
 // sole output here is a fatal pre-launch console.error (user-facing CLI
@@ -13,21 +15,23 @@ const require = createRequire(import.meta.url);
 
 const MCP_PATH = "/mcp/";
 
+const fullUrl = process.env.PIBOX_MCP_URL;
 const base = process.env.PIBOX_URL;
 
-if (!base) {
+if (!fullUrl && !base) {
   console.error(
-    `[pibox-mcp] Missing PIBOX_URL.
+    `[pibox-mcp] Missing PIBOX_URL or PIBOX_MCP_URL.
 
 Point this bridge at your running pibox server, e.g.:
-  export PIBOX_URL=http://localhost:8080
+  export PIBOX_URL=http://localhost:8080      # API mode, bridge appends /mcp/
+  export PIBOX_MCP_URL=http://localhost:8081/ # MCP sidecar, used as given
 
 pibox is self-hosted. See https://github.com/psyb0t/docker-pibox`,
   );
   process.exit(1);
 }
 
-const url = `${base.replace(/\/+$/, "")}${MCP_PATH}`;
+const url = fullUrl || `${base.replace(/\/+$/, "")}${MCP_PATH}`;
 const token = process.env.PIBOX_MCP_MODE_TOKEN;
 const proxyEntry = require.resolve("mcp-remote/dist/proxy.js");
 

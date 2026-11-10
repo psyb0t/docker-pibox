@@ -12,6 +12,6 @@ output="$(docker run --rm --name "pibox-action-provider-output-$$" --network non
     --mount "type=bind,src=$REPO/pibox/scripts/setup-provider-env.sh,dst=/provider.sh,readonly" \
     -e PIBOX_PROVIDER_API_KEY=EXAMPLE-DO-NOT-USE \
     -e PIBOX_PROVIDER_BASE_URL=https://example.invalid/v1 \
-    -e PIBOX_PROVIDER_MODEL=example-model psyb0t/aicodebox:latest /provider.sh)"
+    -e PIBOX_PROVIDER_MODEL=example-model psyb0t/aicodebox:v0.18.4@sha256:4962442c598356a0e570ea16d6ab22af83a5c4fb874165665010b83b256b00e9 /provider.sh)"
 [[ -z "$output" ]] || fail "Provider setup polluted native stdout"
 log INFO "Provider setup leaves stdout clean"

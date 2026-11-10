@@ -11,8 +11,8 @@ TAG        := v$(VERSION)
 # if you need to test against a local fork of docker-aicodebox. Pin must
 # match the Dockerfile's ARG default so `make build` (which pulls then
 # builds) doesn't drift from a direct `docker build` invocation.
-BASE_IMAGE ?= psyb0t/aicodebox:latest
-FULL_BASE_IMAGE ?= psyb0t/aicodebox:latest-full
+BASE_IMAGE ?= psyb0t/aicodebox:v0.18.4@sha256:4962442c598356a0e570ea16d6ab22af83a5c4fb874165665010b83b256b00e9
+FULL_BASE_IMAGE ?= psyb0t/aicodebox:v0.18.4-full@sha256:dcacf5779530eaf346979e50cb134ab5f6be56bba1654cc334f158f37b7d884d
 
 .PHONY: all build build-full build-all install install-full install-wrapper pull-base pull-full-base test test-wrapper-install clean help version pkg-lock lint lint-shell lint-python test-ci test-python docs
 
@@ -106,6 +106,10 @@ test-wrapper-install: ## Verify standalone and nested wrapper/install behavior w
 test-action: ## Test the GitHub Action and native event handling without credentials
 	bash tests/test_github_action.sh
 
+.PHONY: test-openclaw-bridge
+test-openclaw-bridge: ## Verify the OpenClaw MCP bridge's target URL and auth header with a stub proxy
+	bash tests/test_openclaw_bridge.sh
+
 .PHONY: test-action-provider-output
 test-action-provider-output: ## Verify provider startup leaves native stdout clean in a container
 	bash tests/action-provider-output.sh
@@ -125,7 +129,7 @@ lint-python: ## Run ruff and pyright on the adapter inside the base image
 test-python: ## Run the adapter unit tests inside the base image
 	$(call py_dev_run,python3 -m pytest -p no:cacheprovider tests/ -v)
 
-test-ci: test-python test-wrapper-install test-action test-entrypoint-identity test-action-provider-output ## Run every offline, credential-free test (what CI runs)
+test-ci: test-python test-wrapper-install test-action test-entrypoint-identity test-action-provider-output test-openclaw-bridge ## Run every offline, credential-free test (what CI runs)
 
 # Builds docs/ with the image GitHub Pages uses, so the local result matches
 # the published site. The output directory is gitignored.

@@ -1,4 +1,4 @@
-# docker-pibox
+# pibox
 
 [![CI](https://github.com/psyb0t/docker-pibox/actions/workflows/pipeline.yml/badge.svg?branch=main)](https://github.com/psyb0t/docker-pibox/actions/workflows/pipeline.yml)
 [![version](https://raw.githubusercontent.com/psyb0t/docker-pibox/badges/version.svg)](https://github.com/psyb0t/docker-pibox/releases)
@@ -65,7 +65,7 @@ Install `pibox`, `codexbox`, and `claudebox` in the same command directory when 
 ## Image variants
 
 - `psyb0t/pibox:latest` is the minimal image.
-- `psyb0t/pibox:latest-full` starts from the shared `aicodebox:latest-full` base, then adds Pi and pibox. It carries the shared development toolchain without rebuilding it in this repository.
+- `psyb0t/pibox:latest-full` starts from the shared `aicodebox:v0.18.4-full` base, then adds Pi and pibox. It carries the shared development toolchain without rebuilding it in this repository.
 
 ## Modes
 

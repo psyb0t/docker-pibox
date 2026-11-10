@@ -14,10 +14,10 @@ mkdir -p "$TEST_LOG_DIR"
 # shellcheck disable=SC1091
 source tests/common.sh
 
+# Only files that register e2e tests are sourced. The other tests/test_*.sh
+# files are standalone scripts that run on load and exit.
 for f in tests/test_*.sh; do
-    case "$f" in
-        tests/test_wrapper_install.sh | tests/test_github_action.sh) continue ;;
-    esac
+    grep -q '^ALL_TESTS+=(' "$f" || continue
     # shellcheck disable=SC1090
     source "$f"
 done

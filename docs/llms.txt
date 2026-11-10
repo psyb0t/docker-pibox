@@ -5,7 +5,7 @@ sitemap: false
 search_exclude: true
 nav_exclude: true
 ---
-# docker-pibox
+# pibox
 
 > {{ site.description }}
 

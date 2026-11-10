@@ -30,7 +30,9 @@ PIBOX_FULL=1 pibox -p "run the full suite"
 ```
 
 Configure the Pi upstream before the first run with `PIBOX_PROVIDER_*` or the
-supported `ANTHROPIC_*` compatibility variables. Use an HTTP or MCP endpoint
+supported `ANTHROPIC_*` compatibility variables. The wrapper forwards only
+`PIBOX_*` names, so pass the compatibility variables with the `PIBOX_ENV_`
+prefix, such as `PIBOX_ENV_ANTHROPIC_AUTH_TOKEN`. Use an HTTP or MCP endpoint
 only when the user asks for a service or provides an already-running remote
 URL. MCP plugins connect to a server. They do not replace the local wrapper.
 

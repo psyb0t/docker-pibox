@@ -1,6 +1,6 @@
 # Docker images
 
-- `Dockerfile` (minimal, on `psyb0t/aicodebox:latest`) and `Dockerfile.full` (on `psyb0t/aicodebox:latest-full`) must install the same pibox layer: Pi at `ARG PI_VERSION`, the adapter from `pibox/` with `uv pip install --system --break-system-packages --no-deps`, the MCP bridge's npm dependencies, `pibox/init.d/` into `/aicodebox-init.d/`, the same `ENV` block (except `PIBOX_IMAGE_VARIANT`) and `pibox-entrypoint.sh` as `ENTRYPOINT`. Change both files together.
+- `Dockerfile` (minimal, on `psyb0t/aicodebox:v0.18.4`) and `Dockerfile.full` (on `psyb0t/aicodebox:v0.18.4-full`) must install the same pibox layer: Pi at `ARG PI_VERSION`, the adapter from `pibox/` with `uv pip install --system --break-system-packages --no-deps`, the MCP bridge's npm dependencies, `pibox/init.d/` into `/aicodebox-init.d/`, the same `ENV` block (except `PIBOX_IMAGE_VARIANT`) and `pibox-entrypoint.sh` as `ENTRYPOINT`. Change both files together.
 - Generic development tools belong in aicodebox, not here. This repository adds only Pi, the adapter and pibox startup behavior.
 - npm installs use `--ignore-scripts --no-audit --no-fund` and exact versions: `PI_VERSION` in the Dockerfiles, `@modelcontextprotocol/sdk` in `pibox/extensions/mcp-bridge/package.json`.
 - Keep `LABEL io.modelcontextprotocol.server.name="io.github.psyb0t/pibox"` in both files; the MCP Registry checks it against `server.json`.

@@ -7,7 +7,7 @@ seo:
   type: WebSite
 ---
 
-# docker-pibox
+# pibox
 
 docker-pibox puts [pi-coding-agent](https://github.com/earendil-works/pi-mono/tree/main/packages/coding-agent) inside an [aicodebox](https://github.com/psyb0t/docker-aicodebox) container. One image, several ways in: an interactive shell, a one-shot prompt, an HTTP API with an OpenAI-compatible endpoint, an MCP server, a Telegram bot, and a cron scheduler that fires Pi on whatever schedule you want.
 

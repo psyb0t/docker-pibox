@@ -1,4 +1,4 @@
-# docker-pibox
+# pibox
 
 Instructions for coding agents (Codex, Claude Code and others) and for people changing this repository. Users of the image want the documentation site, https://psyb0t.github.io/docker-pibox/, not this file.
 
@@ -25,7 +25,7 @@ Request path: client -> base mode (API, MCP, Telegram, cron) -> `PiAdapter.build
 
 ## Stack
 
-- Base image: `psyb0t/aicodebox:latest` (minimal) and `:latest-full`, set by `ARG BASE_IMAGE` in `Dockerfile` and `Dockerfile.full`. The base brings Ubuntu 24.04, Python 3.14, Node.js, Docker CE, `uv` and the `aicodebox` Python package.
+- Base image: `psyb0t/aicodebox:v0.18.4` (minimal) and `:v0.18.4-full`, set by `ARG BASE_IMAGE` in `Dockerfile` and `Dockerfile.full`. The base brings Ubuntu 24.04, Python 3.14, Node.js, Docker CE, `uv` and the `aicodebox` Python package.
 - Pi: `@earendil-works/pi-coding-agent`, pinned by `ARG PI_VERSION` (currently `1.1.0`) in both Dockerfiles, installed with `npm install -g --ignore-scripts`.
 - Adapter: Python, `requires-python >=3.12`, built with hatchling, installed with `uv pip install --system --no-deps`. No runtime dependencies of its own. Dev group: pytest, ruff, pyright, and `aicodebox` as an editable path to a sibling `../docker-aicodebox` checkout.
 - MCP bridge extension: TypeScript loaded by Pi, depends on `@modelcontextprotocol/sdk` (pinned in its `package.json`).

@@ -34,7 +34,7 @@ The skill is published to ClawHub on every release:
 openclaw skills install @psyb0t/pibox
 ```
 
-For MCP clients that only speak local stdio, the [`@psyb0t/pibox`](https://github.com/psyb0t/docker-pibox/tree/main/.agents/plugins/pibox) plugin bridges stdio to the server's `/mcp/` endpoint through [`mcp-remote`](https://www.npmjs.com/package/mcp-remote):
+For MCP clients that only speak local stdio, the [`@psyb0t/pibox`](https://github.com/psyb0t/docker-pibox/tree/main/.agents/plugins/pibox) plugin bridges stdio to the server's MCP endpoint through [`mcp-remote`](https://www.npmjs.com/package/mcp-remote):
 
 ```bash
 openclaw plugins install clawhub:@psyb0t/pibox
@@ -42,10 +42,9 @@ openclaw plugins install clawhub:@psyb0t/pibox
 
 | Variable | Required | Meaning |
 | --- | --- | --- |
-| `PIBOX_URL` | yes | Base URL of the running server, such as `http://localhost:8080`. The bridge appends `/mcp/` |
+| `PIBOX_URL` | one of the two | Base URL of a server in API mode, such as `http://localhost:8080`. The bridge appends `/mcp/` |
+| `PIBOX_MCP_URL` | one of the two | Full MCP endpoint URL, used as given. Set it for a sidecar MCP server, which serves at its port root, such as `http://localhost:8081/`. Wins over `PIBOX_URL` |
 | `PIBOX_MCP_MODE_TOKEN` | no | Bearer token, needed only when the server was started with `PIBOX_MCP_MODE_TOKEN` |
-
-The bridge appends `/mcp/`, which is the API-mode path. A sidecar MCP server serves at its port root instead, so for a sidecar, point an MCP client that speaks streamable HTTP straight at `http://host:8081/` rather than using the bridge.
 
 The plugin does not start a server. Start one from the workspace you want to expose, with both tokens set:
 

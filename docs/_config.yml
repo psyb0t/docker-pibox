@@ -1,4 +1,4 @@
-title: docker-pibox
+title: pibox
 tagline: pi-coding-agent in a container, with an API, MCP, Telegram and cron
 description: A Docker image that runs pi-coding-agent on the aicodebox base, with a host wrapper, an HTTP API with an OpenAI-compatible endpoint, an MCP server, a Telegram bot and a cron scheduler.
 lang: en

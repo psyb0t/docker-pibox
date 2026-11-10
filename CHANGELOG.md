@@ -4,6 +4,14 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.21.2, 2026-11-10
+
+- Builds on aicodebox v0.18.4, now pinned by tag and digest instead of following `latest`. That release fixes a 500 on OpenAI messages with null content, checks image-fetch redirects, rejects workspace symlinks that escape the root, makes MCP `run_prompt` take the workspace lock and retry `json_schema` runs, stops the Telegram bot on a malformed `TELEGRAM_CHAT_ID`, and prints cron `{system_datetime}` in UTC.
+- The OpenClaw bridge takes `PIBOX_MCP_URL`, used as given, so it can reach a standalone MCP server, which answers at its port root. `PIBOX_URL` still adds `/mcp/`.
+- The skill and plugin README say that host `ANTHROPIC_*` variables reach the container only with the `PIBOX_ENV_` prefix.
+- `./test.sh` loads only the test files that register end-to-end tests.
+- Titles the README and the documentation site `pibox`.
+
 ## v0.21.1, 2026-11-10
 
 - Publishes the documentation at https://psyb0t.github.io/docker-pibox/ and moves the reference material out of the README into it. Fixes the README provider examples: the wrapper passes only `PIBOX_*` variables into the container, so provider settings use `PIBOX_PROVIDER_*` names or the `PIBOX_ENV_` prefix. Fixes the `/run` examples to use a relative workspace.

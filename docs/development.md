@@ -25,14 +25,14 @@ make docs                 # build this site into .testing/docs-site
 make clean                # remove the built pibox images
 ```
 
-`VERSION` is read from [`pibox/pyproject.toml`](https://github.com/psyb0t/docker-pibox/blob/main/pibox/pyproject.toml). `make build` pulls `psyb0t/aicodebox:latest`, the same default as the `BASE_IMAGE` argument in the Dockerfile. To build on a base you built from a local `docker-aicodebox` checkout, set `SKIP_BASE_PULL=1`, or pass `BASE_IMAGE=...`. `make build-full` does the same with `psyb0t/aicodebox:latest-full`.
+`VERSION` is read from [`pibox/pyproject.toml`](https://github.com/psyb0t/docker-pibox/blob/main/pibox/pyproject.toml). `make build` pulls `psyb0t/aicodebox:v0.18.4`, the same default as the `BASE_IMAGE` argument in the Dockerfile. To build on a base you built from a local `docker-aicodebox` checkout, set `SKIP_BASE_PULL=1`, or pass `BASE_IMAGE=...`. `make build-full` does the same with `psyb0t/aicodebox:v0.18.4-full`.
 
 ## Lint
 
 `make lint` runs two targets:
 
 - `lint-shell` runs shellcheck from a pinned image over every shell script and the test Docker stub.
-- `lint-python` runs `ruff check` and `pyright` on the adapter and its tests inside `psyb0t/aicodebox:latest`, which already has the `aicodebox` package the adapter imports. The tool versions match the `dev` dependency group in `pyproject.toml`.
+- `lint-python` runs `ruff check` and `pyright` on the adapter and its tests inside `psyb0t/aicodebox:v0.18.4`, which already has the `aicodebox` package the adapter imports. The tool versions match the `dev` dependency group in `pyproject.toml`.
 
 Both mount the repository read-only and fail on any finding.
 
@@ -45,6 +45,7 @@ Both mount the repository read-only and fail on any finding.
 | `make test-action` | Bash, jq | The GitHub Action script against a stub Docker that replays canned Pi output |
 | `make test-entrypoint-identity` | Docker | `PIBOX_GIT_NAME` and `PIBOX_GIT_EMAIL` through the real base entrypoint |
 | `make test-action-provider-output` | Docker | Provider setup prints nothing on stdout, so native JSON output stays clean |
+| `make test-openclaw-bridge` | Docker, jq | The OpenClaw MCP bridge picks the right endpoint and bearer header, checked against a stub `mcp-remote` |
 | `make test-ci` | Docker, Bash, jq | All of the above |
 | `make test` | Docker, `.env.test` | The e2e suite |
 

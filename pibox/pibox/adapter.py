@@ -1,6 +1,6 @@
 """PiAdapter — wires the aicodebox AgentAdapter contract to pi-coding-agent.
 
-pi CLI surface used here (see .research_files/pi-deep-dive.md for the full map):
+pi CLI surface used here (`pi --help` lists the rest):
   -p / --print                non-interactive
   --mode text|json            output protocol
   --model <id>                model override

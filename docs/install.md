@@ -46,8 +46,8 @@ curl -fsSL https://raw.githubusercontent.com/psyb0t/docker-pibox/main/install.sh
 
 | Image | Base | Contents |
 | --- | --- | --- |
-| `psyb0t/pibox:latest` | `psyb0t/aicodebox:latest` | The minimal image: Pi, the pibox adapter and the shared runtime |
-| `psyb0t/pibox:latest-full` | `psyb0t/aicodebox:latest-full` | The same pibox layer on the shared full development toolchain |
+| `psyb0t/pibox:latest` | `psyb0t/aicodebox:v0.18.4` | The minimal image: Pi, the pibox adapter and the shared runtime |
+| `psyb0t/pibox:latest-full` | `psyb0t/aicodebox:v0.18.4-full` | The same pibox layer on the shared full development toolchain |
 
 Each release also gets `:vX.Y.Z` and `:vX.Y.Z-full` tags, and every push to `main` publishes a per-commit `:sha-<commit>` tag. Both variants build from the same pibox files, see [`Dockerfile`](https://github.com/psyb0t/docker-pibox/blob/main/Dockerfile) and [`Dockerfile.full`](https://github.com/psyb0t/docker-pibox/blob/main/Dockerfile.full).
 
