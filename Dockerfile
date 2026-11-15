@@ -68,7 +68,7 @@ FROM ${BASE_IMAGE}
 LABEL io.modelcontextprotocol.server.name="io.github.psyb0t/pibox"
 
 # pi-coding-agent, pinned with lifecycle scripts disabled.
-ARG PI_VERSION=1.1.0
+ARG PI_VERSION=1.5.2
 RUN npm install -g --ignore-scripts --no-audit --no-fund \
     @earendil-works/pi-coding-agent@${PI_VERSION}
 

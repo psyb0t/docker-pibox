@@ -26,7 +26,7 @@ Request path: client -> base mode (API, MCP, Telegram, cron) -> `PiAdapter.build
 ## Stack
 
 - Base image: `psyb0t/aicodebox:v0.18.4` (minimal) and `:v0.18.4-full`, set by `ARG BASE_IMAGE` in `Dockerfile` and `Dockerfile.full`. The base brings Ubuntu 24.04, Python 3.14, Node.js, Docker CE, `uv` and the `aicodebox` Python package.
-- Pi: `@earendil-works/pi-coding-agent`, pinned by `ARG PI_VERSION` (currently `1.1.0`) in both Dockerfiles, installed with `npm install -g --ignore-scripts`.
+- Pi: `@earendil-works/pi-coding-agent`, pinned by `ARG PI_VERSION` (currently `1.5.2`) in both Dockerfiles, installed with `npm install -g --ignore-scripts`.
 - Adapter: Python, `requires-python >=3.12`, built with hatchling, installed with `uv pip install --system --no-deps`. No runtime dependencies of its own. Dev group: pytest, ruff, pyright, and `aicodebox` as an editable path to a sibling `../docker-aicodebox` checkout.
 - MCP bridge extension: TypeScript loaded by Pi, depends on `@modelcontextprotocol/sdk` (pinned in its `package.json`).
 - Shell: Bash with `set -euo pipefail` for wrapper, installer, entrypoint, bootstrap and tests.

@@ -4,6 +4,10 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.21.3, 2026-11-15
+
+- Updates pi-coding-agent from `1.1.0` to `1.5.2` in both images. Since Pi 1.5.0, tool arguments are validated with `@earendil-works/pi-schema`, so Pi extensions that rely on TypeBox-only features (`Type.Refine()`, codecs) lose those checks. Since Pi 1.5.1, the `anthropic` provider defaults to `claude-opus-5-5`, and OpenAI-compatible requests omit an empty `tools` array. The installed wrapper does not need updating.
+
 ## v0.21.2, 2026-11-10
 
 - Builds on aicodebox v0.18.4, now pinned by tag and digest instead of following `latest`. That release fixes a 500 on OpenAI messages with null content, checks image-fetch redirects, rejects workspace symlinks that escape the root, makes MCP `run_prompt` take the workspace lock and retry `json_schema` runs, stops the Telegram bot on a malformed `TELEGRAM_CHAT_ID`, and prints cron `{system_datetime}` in UTC.
