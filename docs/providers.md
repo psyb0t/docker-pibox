@@ -86,9 +86,25 @@ docker run -d --name pibox --network host \
 
 At every container start, [`setup-provider-env.sh`](https://github.com/psyb0t/docker-pibox/blob/main/pibox/scripts/setup-provider-env.sh) writes Pi's provider entry to `/home/aicode/.pi/agent/models.json` and records the selected provider and model in `/home/aicode/.pi/agent/pibox-provider.json`. Other providers in `models.json` are kept. The entrypoint passes `PIBOX_PROVIDER_API_KEY` to the unprivileged Pi process as `OPENAI_API_KEY`, and `models.json` stores the `$OPENAI_API_KEY` reference, not the key value. Restart the container after changing configuration.
 
-Every model is registered with a 128,000-token context window and a 16,384-token output limit. The script logs to stderr and to `/tmp/pibox-provider-setup.log` inside the container. Invalid settings stop the container before any mode starts. [Troubleshooting](troubleshooting.md#provider-settings-stop-the-container) lists the messages.
+The script logs to stderr and to `/tmp/pibox-provider-setup.log` inside the container. Invalid settings stop the container before any mode starts. [Troubleshooting](troubleshooting.md#provider-settings-stop-the-container) lists the messages.
 
 When the base URL contains `/anthropic` but `PIBOX_PROVIDER_API` is not `anthropic-messages`, or the reverse with a `/v<number>` path, startup logs a `provider_api_base_url_mismatch` warning and continues. A mismatched protocol otherwise shows up later as a truncated stream.
+
+## Model limits
+
+Each registered model gets a context window, an output token limit and a `reasoning` flag. Pi turns thinking off for a model that is not marked as reasoning, whatever `--thinking` says, and ends a reply with `stopReason: "length"` when it hits the output limit.
+
+When the model ID is in Pi's bundled model catalog, pibox copies those three values from it, preferring the catalog entry with the same API as the provider. For example, `glm-5.3` and `glm-5.3-flash` are registered as reasoning models with a 1,000,000-token context window and a 131,072-token output limit. A model that is not in the catalog gets a 128,000-token context window, a 16,384-token output limit and `reasoning: false`.
+
+These variables override both, for every registered model of the managed provider:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `PIBOX_MODEL_MAX_TOKENS` | catalog, else `16384` | Output token limit. A positive integer |
+| `PIBOX_MODEL_CONTEXT_WINDOW` | catalog, else `128000` | Context window in tokens. A positive integer |
+| `PIBOX_MODEL_REASONING` | catalog, else `false` | `true` or `false`. With `false`, Pi runs the model with thinking off |
+
+Startup logs one line per model with the values it registered and where they came from (`env`, `catalog` or `default`). The limits apply to both the `PIBOX_PROVIDER_*` path and the `ANTHROPIC_*` path.
 
 ## Anthropic compatibility
 

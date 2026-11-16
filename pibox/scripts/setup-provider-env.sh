@@ -19,7 +19,11 @@ readonly MAX_URL_LENGTH=2048
 readonly MAX_API_KEY_LENGTH=4096
 readonly DEFAULT_CONTEXT_WINDOW=128000
 readonly DEFAULT_MAX_TOKENS=16384
+readonly DEFAULT_REASONING=false
+readonly MAX_LIMIT_DIGITS=9
 readonly MODEL_ID_SEPARATOR=","
+# Built from the installed Pi at image build time; see the Dockerfiles.
+readonly PI_MODEL_CATALOG_DIR="/opt/pibox/pi-model-catalog"
 
 log() {
 	local level="$1"
@@ -141,28 +145,115 @@ collect_model_ids() {
 	printf '%s\n' "${model_ids[@]}"
 }
 
+validate_positive_integer() {
+	local value="$1"
+	local label="$2"
+
+	[[ "$value" =~ ^[1-9][0-9]*$ ]] || fail "$label must be a positive integer"
+	[[ "${#value}" -le "$MAX_LIMIT_DIGITS" ]] || fail "$label exceeds $MAX_LIMIT_DIGITS digits"
+}
+
+# PIBOX_MODEL_* values apply to every registered model and win over the
+# catalog. Unset or empty means "not overridden".
+model_limit_overrides() {
+	local max_tokens="${PIBOX_MODEL_MAX_TOKENS:-}"
+	local context_window="${PIBOX_MODEL_CONTEXT_WINDOW:-}"
+	local reasoning="${PIBOX_MODEL_REASONING:-}"
+	local overrides='{}'
+
+	if [[ -n "$max_tokens" ]]; then
+		validate_positive_integer "$max_tokens" "PIBOX_MODEL_MAX_TOKENS"
+		overrides="$(jq -c --argjson v "$max_tokens" '.maxTokens = $v' <<<"$overrides")"
+	fi
+
+	if [[ -n "$context_window" ]]; then
+		validate_positive_integer "$context_window" "PIBOX_MODEL_CONTEXT_WINDOW"
+		overrides="$(jq -c --argjson v "$context_window" '.contextWindow = $v' <<<"$overrides")"
+	fi
+
+	if [[ -n "$reasoning" ]]; then
+		[[ "$reasoning" == true || "$reasoning" == false ]] || fail "PIBOX_MODEL_REASONING must be true or false"
+		overrides="$(jq -c --argjson v "$reasoning" '.reasoning = $v' <<<"$overrides")"
+	fi
+
+	printf '%s' "$overrides"
+}
+
+# Pi's bundled catalog lists the real limits of the models it knows. Only
+# entries for the requested ids are kept, reduced to the fields pibox copies.
+# A missing or unreadable catalog leaves every model on the defaults.
+model_catalog() {
+	local ids_json
+	local -a catalog_files=()
+
+	ids_json="$(jq -cn '$ARGS.positional' --args "$@")"
+
+	[[ -d "$PI_MODEL_CATALOG_DIR" ]] || {
+		printf '[]'
+		return 0
+	}
+
+	shopt -s nullglob
+	catalog_files=("$PI_MODEL_CATALOG_DIR"/*.json)
+	shopt -u nullglob
+
+	[[ "${#catalog_files[@]}" -gt 0 ]] || {
+		printf '[]'
+		return 0
+	}
+
+	jq -cs --argjson ids "$ids_json" '[.[] | .. | objects
+        | select((.id | type) == "string" and (.contextWindow | type) == "number" and (.maxTokens | type) == "number")
+        | select(.id as $id | any($ids[]; . == $id))
+        | {id, api, contextWindow, maxTokens, reasoning: (.reasoning == true)}]' \
+		"${catalog_files[@]}" 2>/dev/null || {
+		log WARN "Pi model catalog is unreadable, using default model limits reason=model_catalog_unreadable"
+		printf '[]'
+	}
+}
+
+# Limits per model: PIBOX_MODEL_* overrides, then the catalog entry for the
+# same id (preferring one with the same API), then the defaults.
 build_models_json() {
 	local provider_api="$1"
 	shift
+	local overrides
+	local catalog
+	local models_json
 
 	[[ "$#" -gt 0 ]] || {
 		printf '[]'
 		return 0
 	}
 
-	jq -n \
+	overrides="$(model_limit_overrides)"
+	catalog="$(model_catalog "$@")"
+
+	models_json="$(jq -c -n \
 		--arg api "$provider_api" \
-		--argjson context_window "$DEFAULT_CONTEXT_WINDOW" \
-		--argjson max_tokens "$DEFAULT_MAX_TOKENS" \
-		'$ARGS.positional | map({
-            id: .,
-            name: .,
-            api: $api,
-            input: ["text"],
-            contextWindow: $context_window,
-            maxTokens: $max_tokens
-        })' \
-		--args "$@"
+		--argjson catalog "$catalog" \
+		--argjson overrides "$overrides" \
+		--argjson defaults "{\"contextWindow\":$DEFAULT_CONTEXT_WINDOW,\"maxTokens\":$DEFAULT_MAX_TOKENS,\"reasoning\":$DEFAULT_REASONING}" \
+		'$ARGS.positional | map(. as $id
+            | ([$catalog[] | select(.id == $id)] | (map(select(.api == $api)) + .) | first // null) as $entry
+            | {
+                id: $id,
+                name: $id,
+                api: $api,
+                input: ["text"]
+            }
+            + $defaults
+            + (if $entry then ($entry | {contextWindow, maxTokens, reasoning}) else {} end)
+            + $overrides
+            + {limitsSource: (if ($overrides | length) > 0 then "env" elif $entry then "catalog" else "default" end)})' \
+		--args "$@")"
+
+	jq -r '.[] | "model \(.id) contextWindow=\(.contextWindow) maxTokens=\(.maxTokens) reasoning=\(.reasoning) source=\(.limitsSource)"' \
+		<<<"$models_json" | while IFS= read -r line; do
+		log INFO "$line"
+	done
+
+	jq -c 'map(del(.limitsSource))' <<<"$models_json"
 }
 
 # An OpenAI-shaped request sent to an Anthropic-shaped endpoint (or the

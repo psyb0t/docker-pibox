@@ -9,7 +9,7 @@ end user downloads themselves.
 
 | Component | Kind | License (SPDX) | Source | Where it lives | Note |
 |---|---|---|---|---|---|
-| [`@earendil-works/pi-coding-agent`](https://github.com/earendil-works/pi-mono/tree/main/packages/coding-agent) | npm global install | `MIT` | https://github.com/earendil-works/pi-mono | `Dockerfile` — `npm install -g @earendil-works/pi-coding-agent@${PI_VERSION}` | The `pi` coding agent. Open source (MIT), so redistribution in the image is fine — attribution retained. Full text: [`LICENSES/pi-coding-agent-MIT.txt`](LICENSES/pi-coding-agent-MIT.txt). |
+| [`@earendil-works/pi-coding-agent`](https://github.com/earendil-works/pi-mono/tree/main/packages/coding-agent) | npm global install | `MIT` | https://github.com/earendil-works/pi-mono | `Dockerfile` — `npm install -g @earendil-works/pi-coding-agent@${PI_VERSION}` | The `pi` coding agent. Open source (MIT), so redistribution in the image is fine — attribution retained. The image also carries a modified copy of its subagent example extension at `/opt/pibox/extensions/subagent`, patched at build time by `pibox/scripts/install-subagent-extension.sh`. Full text: [`LICENSES/pi-coding-agent-MIT.txt`](LICENSES/pi-coding-agent-MIT.txt). |
 | [`mcp-remote`](https://www.npmjs.com/package/mcp-remote) | npm dependency of the bundled plugin | `MIT` | https://www.npmjs.com/package/mcp-remote | `.agents/plugins/pibox/package.json` | Dependency of the `@psyb0t/pibox` MIT plugin, not baked into the Docker image. |
 
 pibox itself talks to an Anthropic-compatible LLM endpoint you configure

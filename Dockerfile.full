@@ -20,6 +20,17 @@ RUN uv pip install --system --break-system-packages --no-deps /opt/pibox \
 RUN cd /opt/pibox/extensions/mcp-bridge \
     && npm install --omit=dev --ignore-scripts --no-audit --no-fund
 
+# Pi's subagent example, patched to read pibox limits, plus a stable path to
+# Pi's model catalog for setup-provider-env.sh. Both fail the build if the
+# installed Pi no longer ships them where expected.
+RUN pi_root="$(npm root -g)/@earendil-works/pi-coding-agent" \
+    && /opt/pibox/scripts/install-subagent-extension.sh \
+        "$pi_root/examples/extensions/subagent" /opt/pibox/extensions/subagent \
+    && catalog="$(find "$pi_root" -path '*/@earendil-works/pi-ai/dist/providers/data' -type d -print -quit)" \
+    && test -n "$catalog" \
+    && ln -s "$catalog" /opt/pibox/pi-model-catalog \
+    && ls /opt/pibox/pi-model-catalog/*.json >/dev/null
+
 COPY pibox/init.d/ /aicodebox-init.d/
 RUN chmod +x /aicodebox-init.d/*.sh
 

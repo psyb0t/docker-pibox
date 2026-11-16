@@ -196,6 +196,14 @@ docker run --rm --network host \
   -p "list the files in /workspace"
 ```
 
+Model limits come from Pi's bundled catalog when it lists the model ID, else a 128,000-token context window, a 16,384-token output limit and no reasoning. Pi forces thinking off for a model without reasoning. These override both for every registered model:
+
+| Var | Default | What it does |
+|-----|---------|--------------|
+| `PIBOX_MODEL_MAX_TOKENS` | catalog, else `16384` | Output token limit |
+| `PIBOX_MODEL_CONTEXT_WINDOW` | catalog, else `128000` | Context window |
+| `PIBOX_MODEL_REASONING` | catalog, else `false` | `true` or `false` |
+
 For API mode, set `PIBOX_AVAILABLE_MODELS=your-model-id` too. Do not combine `PIBOX_PROVIDER_*` with `ANTHROPIC_BASE_URL`. pibox rejects the ambiguous configuration. The generic variables cover Pi's documented custom HTTP APIs, not every cloud-specific built-in provider.
 
 #### Anthropic compatibility
@@ -206,6 +214,18 @@ For API mode, set `PIBOX_AVAILABLE_MODELS=your-model-id` too. Do not combine `PI
 | `ANTHROPIC_API_KEY` | Used when `ANTHROPIC_AUTH_TOKEN` is empty |
 | `ANTHROPIC_BASE_URL` | Endpoint override (default `https://api.anthropic.com`) |
 | `ANTHROPIC_MODEL` | Default model when the caller doesn't specify one |
+
+### Subagents
+
+Pi's subagent example extension ships in the image, off by default.
+
+| Var | Default | What it does |
+|-----|---------|--------------|
+| `PIBOX_SUBAGENTS` | `false` | `true` registers the `subagent` tool |
+| `PIBOX_SUBAGENT_MAX_TASKS` | `8` | Most tasks per parallel call |
+| `PIBOX_SUBAGENT_MAX_CONCURRENCY` | `4` | Most parallel tasks at once |
+| `PIBOX_SUBAGENT_THINKING` | none | Thinking level for agents whose definition sets `model:` |
+| `PIBOX_AGENTS_DIR` | none | Container path of agent definitions (`*.md`) linked into `~/.pi/agent/agents`. Mount it with `PIBOX_MOUNT_*`; do not mount onto `~/.pi/agent/agents` |
 
 ## OpenAI endpoint headers
 

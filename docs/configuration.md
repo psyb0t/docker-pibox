@@ -1,6 +1,6 @@
 ---
 title: "Configuration"
-description: "Every pibox environment variable: mode flags, workspace and runtime settings, PIBOX_ to AICODEBOX_ aliasing, Git identity, bin/ and init.d/ hooks."
+description: "Every pibox environment variable: mode flags, workspace and runtime settings, PIBOX_ to AICODEBOX_ aliasing, Git identity, bin/ and init.d/ hooks, subagents."
 nav_order: 3
 ---
 
@@ -78,3 +78,41 @@ The bundled [MCP bridge extension](https://github.com/psyb0t/docker-pibox/blob/m
 ```
 
 Each tool is registered as `mcp__<server>__<tool>`, with characters outside `A-Za-z0-9_-` replaced by `_`. A server that fails to start or to list its tools is logged and skipped. This is the opposite direction from [MCP mode](modes/mcp.md), which lets other agents call pibox.
+
+## Subagents
+
+The image ships Pi's [subagent example extension](https://github.com/earendil-works/pi-mono/tree/main/packages/coding-agent/examples/extensions/subagent), off by default. It gives Pi a `subagent` tool that runs agent definitions in separate Pi processes, one at a time, in parallel or as a chain. pibox installs it at build time with [`install-subagent-extension.sh`](https://github.com/psyb0t/docker-pibox/blob/main/pibox/scripts/install-subagent-extension.sh), which makes its limits and the thinking level of model-pinned agents configurable.
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `PIBOX_SUBAGENTS` | `false` | `true` or `1` adds the extension to `~/.pi/agent/settings.json`. `false`, `0` or unset removes it |
+| `PIBOX_SUBAGENT_MAX_TASKS` | `8` | Most tasks one parallel call may hold |
+| `PIBOX_SUBAGENT_MAX_CONCURRENCY` | `4` | Most parallel tasks running at once |
+| `PIBOX_SUBAGENT_THINKING` | none | Thinking level for agents whose definition sets its own `model:`: `off`, `minimal`, `low`, `medium`, `high`, `xhigh` or `max`. Agents without `model:` inherit the calling session's model and thinking level, as upstream |
+| `PIBOX_AGENTS_DIR` | none | Absolute path inside the container to a directory of agent definitions (`*.md`). Each one is linked into `~/.pi/agent/agents` |
+
+[`setup-subagents.sh`](https://github.com/psyb0t/docker-pibox/blob/main/pibox/scripts/setup-subagents.sh) applies these at every start and writes the limits to `~/.pi/agent/pibox-subagent.json`. Invalid values stop the container before any mode starts.
+
+An agent definition is Markdown with YAML front matter:
+
+```markdown
+---
+name: reviewer
+description: Reviews a diff and lists defects
+tools: read, grep, find, ls
+model: pibox/your-model-id
+---
+
+Review the change you are given and list concrete defects.
+```
+
+Use `PIBOX_AGENTS_DIR` rather than mounting a directory onto `~/.pi/agent/agents`. Docker creates the missing parents of a bind mount as root, so `~/.pi/agent` would become root-owned and provider setup would fail. Through the wrapper, mount the directory with a `PIBOX_MOUNT_*` variable and point `PIBOX_AGENTS_DIR` at the same path:
+
+```bash
+PIBOX_SUBAGENTS=true \
+PIBOX_MOUNT_AGENTS="$HOME/pi-agents" \
+PIBOX_AGENTS_DIR="$HOME/pi-agents" \
+pibox -p "use the reviewer agent on the last commit"
+```
+
+pibox records the links it made in `~/.pi/agent/pibox-agents.json` and replaces them at the next start. An existing file with the same name in `~/.pi/agent/agents` is kept, with a warning. The example's sample agents name Anthropic models, so pibox does not install them.

@@ -23,8 +23,23 @@ Start with the container log: `docker logs <container>` for a detached container
 | `PIBOX_PROVIDER_API must be openai-completions, openai-responses, anthropic-messages, or google-generative-ai` | Pick one of those |
 | `... must be a single line` or `... exceeds N characters` | Remove line breaks, or shorten the value |
 | `ANTHROPIC_AUTH_TOKEN or ANTHROPIC_API_KEY is required when ANTHROPIC_BASE_URL is set` | Set one of the two |
+| `PIBOX_MODEL_MAX_TOKENS must be a positive integer` or `PIBOX_MODEL_CONTEXT_WINDOW must be a positive integer` | Use a whole number above zero, at most 9 digits |
+| `PIBOX_MODEL_REASONING must be true or false` | Use `true` or `false` |
 | `refusing symlinked models.json` | Replace `~/.pi/agent/models.json` with a regular file |
 | `models.json is not valid provider configuration` | Fix or remove the JSON in `~/.pi/agent/models.json` |
+
+## Subagent settings stop the container
+
+[`setup-subagents.sh`](https://github.com/psyb0t/docker-pibox/blob/main/pibox/scripts/setup-subagents.sh) runs at every start, after the provider setup, and exits on invalid settings:
+
+| Message | Fix |
+| --- | --- |
+| `PIBOX_SUBAGENTS must be true, false, 1 or 0` | Use one of those |
+| `PIBOX_SUBAGENT_MAX_TASKS must be a positive integer` or `PIBOX_SUBAGENT_MAX_CONCURRENCY must be a positive integer` | Use a whole number above zero, at most 4 digits |
+| `PIBOX_SUBAGENT_THINKING must be one of: ...` | Use a Pi thinking level |
+| `PIBOX_AGENTS_DIR must be an absolute path inside the container` | Give the path as the container sees it |
+| `PIBOX_AGENTS_DIR is not a directory` | Mount the directory first, for example with `PIBOX_MOUNT_*` |
+| `settings.json is not valid JSON` | Fix or remove `~/.pi/agent/settings.json` |
 
 ## Stream ended without finish_reason
 

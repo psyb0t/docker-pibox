@@ -60,6 +60,12 @@ if [[ -x /opt/pibox/scripts/setup-provider-env.sh ]]; then
 	sudo -E -u aicode -H bash /opt/pibox/scripts/setup-provider-env.sh
 fi
 
+# PIBOX_SUBAGENTS, PIBOX_SUBAGENT_* and PIBOX_AGENTS_DIR are applied at every
+# boot for the same reason. Invalid values stop startup.
+if [[ -x /opt/pibox/scripts/setup-subagents.sh ]]; then
+	sudo -E -u aicode -H bash /opt/pibox/scripts/setup-subagents.sh
+fi
+
 _pibox_has_option() {
 	local option="$1"
 	shift

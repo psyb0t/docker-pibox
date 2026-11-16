@@ -4,6 +4,13 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.22.0, 2026-11-16
+
+- Registers each model with its context window, output limit and reasoning flag from Pi's bundled model catalog when the catalog lists the model ID. `glm-5.3` and `glm-5.3-flash`, for example, now get a 1,000,000-token context window, a 131,072-token output limit and `reasoning: true`, so Pi no longer forces thinking off for them or cuts long thinking replies at 16,384 tokens. Models outside the catalog keep 128,000, 16,384 and no reasoning. `PIBOX_MODEL_MAX_TOKENS`, `PIBOX_MODEL_CONTEXT_WINDOW` and `PIBOX_MODEL_REASONING` override all three for every registered model; set `PIBOX_MODEL_REASONING=false` to keep the old behavior for catalog reasoning models.
+- Ships Pi's subagent example extension, off by default. `PIBOX_SUBAGENTS=true` registers the `subagent` tool. `PIBOX_SUBAGENT_MAX_TASKS` and `PIBOX_SUBAGENT_MAX_CONCURRENCY` replace its fixed limits of 8 and 4, and `PIBOX_SUBAGENT_THINKING` sets the thinking level for agents whose definition names its own model, which upstream starts with no thinking flag.
+- `PIBOX_AGENTS_DIR` links the agent definitions in a container directory into `~/.pi/agent/agents` at every start, so the directory no longer has to be bind-mounted inside `~/.pi`, where Docker creates root-owned parents that break provider setup.
+- The installed wrapper does not need updating.
+
 ## v0.21.3, 2026-11-15
 
 - Updates pi-coding-agent from `1.1.0` to `1.5.2` in both images. Since Pi 1.5.0, tool arguments are validated with `@earendil-works/pi-schema`, so Pi extensions that rely on TypeBox-only features (`Type.Refine()`, codecs) lose those checks. Since Pi 1.5.1, the `anthropic` provider defaults to `claude-opus-5-5`, and OpenAI-compatible requests omit an empty `tools` array. The installed wrapper does not need updating.
