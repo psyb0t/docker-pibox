@@ -108,8 +108,6 @@ jobs:
     with:
       skill_names: '["pibox"]'
       plugin_names: '["pibox"]'
-      pin_images: '["psyb0t/pibox"]'
-      pin_source_urls: true
     secrets:
       clawhub_token: ${{ secrets.CLAWHUB_TOKEN }}
 

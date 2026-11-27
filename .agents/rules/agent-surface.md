@@ -2,7 +2,7 @@
 
 Applies to `.agents/skills/`, `.agents/plugins/`, `.agents/.claude-plugin/`, `.agents/.codex-plugin/` and `server.json`.
 
-- The skill (`.agents/skills/pibox/SKILL.md` and `references/setup.md`) tells agents to run the installed `pibox` wrapper for local work and to use HTTP or MCP only for a server that already runs. Keep that order.
+- The skill (`.agents/skills/pibox/SKILL.md`) covers using an already-running pibox. It tells agents to run the installed `pibox` wrapper for local work and to use HTTP or MCP only for a server that already runs. Keep that order. It links the docs for setup, states its safety guardrails once, and does not document the installer or wrapper internals.
 - The OpenClaw plugin (`.agents/plugins/pibox/`) is MIT, unlike the WTFPL repository. Its `bin/cli.js` only proxies stdio through `mcp-remote` to `$PIBOX_MCP_URL` as given or, when that is unset, to `$PIBOX_URL/mcp/`, which `tests/test_openclaw_bridge.sh` checks. Stdout is the MCP channel, so diagnostics go to stderr.
 - `package.json` and `openclaw.plugin.json` keep version `0.0.0`; the publish workflow sets the real version. `.agents/.codex-plugin/plugin.json` carries the release version, written by `make version`.
 - `pipeline.yml` publishes exactly the directories listed in `skill_names` and `plugin_names`. Add a new skill or plugin directory to those arrays.

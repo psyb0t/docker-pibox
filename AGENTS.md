@@ -51,7 +51,7 @@ Request path: client -> base mode (API, MCP, Telegram, cron) -> `PiAdapter.build
 | `tests/` | Bash tests: offline contract tests and the e2e suite run by `test.sh` |
 | `tests/fixtures/` | The stub `docker` for action tests, an MCP echo server for e2e, and the MCP guide server and scripted model for the offline bridge test |
 | `docs/` | The documentation site (GitHub Pages, built with Docusaurus from `website/`) |
-| `.agents/skills/pibox/` | The agent skill and its `references/setup.md` |
+| `.agents/skills/pibox/` | The agent skill |
 | `.agents/plugins/pibox/` | The OpenClaw stdio-to-HTTP MCP bridge plugin (MIT) |
 | `.agents/.claude-plugin/`, `.agents/.codex-plugin/` | Claude Code and Codex plugin manifests |
 | `.agents/rules/` | Rules for changing this repository |

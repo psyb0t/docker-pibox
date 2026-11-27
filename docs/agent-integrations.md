@@ -5,7 +5,7 @@ description: Install the pibox skill and plugins in Claude Code, Codex and OpenC
 
 # Agent integrations
 
-The repository ships an agent skill and an MCP bridge plugin under [`.agents/`](https://github.com/psyb0t/docker-pibox/tree/main/.agents). The [skill](https://github.com/psyb0t/docker-pibox/tree/main/.agents/skills/pibox) works in any agent that reads `.agents/skills/`, such as [peen](https://github.com/psyb0t/peen). It tells agents to use the installed wrapper for local work, and to use MCP only for a server that is already running.
+The repository ships an agent skill and an MCP bridge plugin under [`.agents/`](https://github.com/psyb0t/docker-pibox/tree/main/.agents). The [skill](https://github.com/psyb0t/docker-pibox/tree/main/.agents/skills/pibox) works in any agent that reads `.agents/skills/`, such as [peen](https://github.com/psyb0t/peen). It tells agents to use the installed wrapper for local work, and to use MCP only for a server that is already running. It covers using pibox, not installing it. Setup stays in these docs.
 
 ## Claude Code
 

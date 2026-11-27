@@ -4,6 +4,12 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.23.2, 2026-11-27
+
+- The agent skill now covers only using a pibox that is already installed and running: the `pibox` command and the HTTP, OpenAI-compatible, MCP, Telegram and cron surfaces. Installer steps, wrapper internals and server setup are out of the skill and stay in the [documentation](https://psyb0t.github.io/docker-pibox/) and the README. `references/setup.md` is removed.
+- The ClawHub publish job no longer sets `pin_images` or `pin_source_urls`, so publishing no longer rewrites the skill's links or pins the image digest.
+- The agent-surface rule now says the skill covers use of the running tool, links the docs for setup and states its safety guardrails once.
+
 ## v0.23.1, 2026-11-27
 
 - The documentation site is now built by Docusaurus, a static site generator, instead of Jekyll, and every page keeps its address. A new `docs.yml` workflow publishes it. `make docs` builds the site in a pinned Node container and fails on a broken link or anchor, and `make docs-lock` refreshes its lockfile.
