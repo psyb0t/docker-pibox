@@ -1,0 +1,19 @@
+# pibox
+
+> pi-coding-agent in a Docker image with a host wrapper, an HTTP API with an OpenAI-compatible endpoint, an MCP server, a Telegram bot and a cron scheduler.
+
+- [Home](https://psyb0t.github.io/docker-pibox/): docker-pibox runs pi-coding-agent in a Docker image with a host wrapper, an HTTP API, an OpenAI-compatible endpoint, MCP, Telegram and cron.
+- [Install and the wrapper](https://psyb0t.github.io/docker-pibox/install/): Install the pibox host wrapper, pick the minimal or full image, run Pi interactively or in the background, and upgrade or remove it.
+- [Configuration](https://psyb0t.github.io/docker-pibox/configuration/): Every pibox environment variable: mode flags, workspace and runtime settings, PIBOX_ to AICODEBOX_ aliasing, Git identity, bin/ and init.d/ hooks, subagents.
+- [LLM providers](https://psyb0t.github.io/docker-pibox/providers/): Point Pi at an OpenAI-compatible, Anthropic Messages or Google endpoint with PIBOX_PROVIDER_*, or keep the ANTHROPIC_* compatibility path.
+- [Modes](https://psyb0t.github.io/docker-pibox/modes/): How pibox's API, Telegram, cron and MCP modes start, which ones run together, and where MCP is served in each combination.
+- [API mode](https://psyb0t.github.io/docker-pibox/modes/api/): pibox API mode: run Pi over HTTP, poll background runs, move workspace files, and use the OpenAI-compatible chat endpoint with tools.
+- [Telegram mode](https://psyb0t.github.io/docker-pibox/modes/telegram/): pibox Telegram mode: talk to Pi from a bot with per-chat workspaces, chat and user allowlists, file transfer and per-chat model settings.
+- [Cron mode](https://psyb0t.github.io/docker-pibox/modes/cron/): pibox cron mode: schedule Pi runs from a YAML file with six-field schedules, per-run history directories and Telegram notifications.
+- [MCP mode](https://psyb0t.github.io/docker-pibox/modes/mcp/): pibox MCP mode: expose run_prompt and workspace file tools over streamable HTTP, with its own bearer token and DNS rebinding protection.
+- [GitHub Action](https://psyb0t.github.io/docker-pibox/github-action/): Run Pi in a GitHub Actions job with the pibox composite action: read-only context, a separate output directory, live tool logs and outputs.
+- [Agent integrations](https://psyb0t.github.io/docker-pibox/agent-integrations/): Install the pibox skill and plugins in Claude Code, Codex and OpenClaw, and bridge stdio MCP clients to a running pibox server.
+- [Security](https://psyb0t.github.io/docker-pibox/security/): What a pibox container can reach, which surfaces are open without a token, where provider keys are stored, and what to set before exposing a port.
+- [Troubleshooting](https://psyb0t.github.io/docker-pibox/troubleshooting/): Fixes for pibox startup refusals, provider errors such as Stream ended without finish_reason, busy workspaces, MCP 421 and 403, and wrapper errors.
+- [Architecture](https://psyb0t.github.io/docker-pibox/architecture/): How pibox layers on aicodebox: the host wrapper, the pibox entrypoint and provider bootstrap, the base modes, and the PiAdapter that drives the Pi CLI.
+- [Development](https://psyb0t.github.io/docker-pibox/development/): Build the pibox images, run lint, the offline tests and the e2e suite, understand the CI pipeline and releases, and build this documentation site.

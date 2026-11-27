@@ -1,8 +1,6 @@
 ---
-title: "MCP mode"
+title: MCP mode
 description: "pibox MCP mode: expose run_prompt and workspace file tools over streamable HTTP, with its own bearer token and DNS rebinding protection."
-parent: "Modes"
-nav_order: 4
 ---
 
 # MCP mode

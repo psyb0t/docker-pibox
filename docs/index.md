@@ -1,10 +1,7 @@
 ---
-title: "Home"
-description: "docker-pibox runs pi-coding-agent in a Docker image with a host wrapper, an HTTP API, an OpenAI-compatible endpoint, MCP, Telegram and cron."
-nav_order: 1
-permalink: /
-seo:
-  type: WebSite
+title: Home
+description: docker-pibox runs pi-coding-agent in a Docker image with a host wrapper, an HTTP API, an OpenAI-compatible endpoint, MCP, Telegram and cron.
+slug: /
 ---
 
 # pibox

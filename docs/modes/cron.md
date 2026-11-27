@@ -1,8 +1,6 @@
 ---
-title: "Cron mode"
+title: Cron mode
 description: "pibox cron mode: schedule Pi runs from a YAML file with six-field schedules, per-run history directories and Telegram notifications."
-parent: "Modes"
-nav_order: 3
 ---
 
 # Cron mode

@@ -1,7 +1,6 @@
 ---
-title: "Install and the wrapper"
-description: "Install the pibox host wrapper, pick the minimal or full image, run Pi interactively or in the background, and upgrade or remove it."
-nav_order: 2
+title: Install and the wrapper
+description: Install the pibox host wrapper, pick the minimal or full image, run Pi interactively or in the background, and upgrade or remove it.
 ---
 
 # Install and the wrapper

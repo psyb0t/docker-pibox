@@ -1,7 +1,6 @@
 ---
-title: "Development"
-description: "Build the pibox images, run lint, the offline tests and the e2e suite, understand the CI pipeline and releases, and build this documentation site."
-nav_order: 11
+title: Development
+description: Build the pibox images, run lint, the offline tests and the e2e suite, understand the CI pipeline and releases, and build this documentation site.
 ---
 
 # Development
@@ -21,7 +20,7 @@ make install-wrapper      # install the wrapper against an image you already hav
 make lint                 # shellcheck, ruff and pyright
 make test-ci              # every offline, credential-free test
 make test                 # the e2e suite against a real LLM endpoint
-make docs                 # build this site into .testing/docs-site
+make docs                 # build this site into website/build and check its links
 make clean                # remove the built pibox images
 ```
 
@@ -70,7 +69,7 @@ Fill in the `ANTHROPIC_*` values in `.env.test`, and optionally the Z.AI Coding 
 | Job | When | What it does |
 | --- | --- | --- |
 | `code` | Every branch push | `make lint` and `make test-ci`. The e2e suite needs credentials and does not run in CI |
-| `call-docker-image-workflow` | After `code`, on `main` | Builds both variants for `linux/amd64` and `linux/arm64`, scans them, and pushes `:latest`, `:latest-full` and `:sha-<commit>` tags |
+| `docker` | After `code`, on `main` | Builds both variants for `linux/amd64` and `linux/arm64`, scans them, and pushes `:latest`, `:latest-full` and `:sha-<commit>` tags |
 | `badges` | `main` and tags | Refreshes the version and license badges |
 | `wait` | `v*` tags | Waits for the tagged commit's `main` run to succeed |
 | `docker-promote` | After `wait` | Promotes that run's image digests to the release tags without rebuilding |
@@ -79,6 +78,8 @@ Fill in the `ANTHROPIC_*` values in `.env.test`, and optionally the Z.AI Coding 
 | `publish-to-mcp-registry` | After `release` | Publishes `server.json` to the MCP Registry |
 
 Other branches stop after `code`.
+
+The `docs.yml` workflow runs apart from the pipeline. It builds this site on every push and pull request and publishes it from `main`.
 
 ## Versions and releases
 
@@ -91,4 +92,4 @@ make version V=X.Y.Z      # write X.Y.Z everywhere it is recorded
 
 ## This documentation site
 
-The site is the `docs/` directory, published by GitHub Pages from `main` with the [Just the Docs](https://just-the-docs.com/) theme. `make docs` builds it with the same image GitHub uses, into `.testing/docs-site`. Every page needs front matter with a unique `title` and a `description` of 50 to 170 characters. Links between pages use the relative `.md` path. Links to files outside `docs/` use the full GitHub URL, because a relative link to them breaks on the site.
+The site is the `docs/` directory, built with Docusaurus from `website/` and published to GitHub Pages from `main` by the `docs.yml` workflow. `make docs` builds it in a pinned Node container into the ignored `website/build`, with no network during the build, and fails on a broken link or anchor. `make docs-lock` refreshes `website/pnpm-lock.yaml` under pnpm's seven-day package age gate. Every page needs front matter with a unique `title` and a `description` of 50 to 170 characters. A new page also goes into `website/sidebars.mjs` and `website/static/llms.txt`. Links between pages use the relative `.md` path. Links to files outside `docs/` use the full GitHub URL, because a relative link to them breaks on the site.

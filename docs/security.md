@@ -1,7 +1,6 @@
 ---
-title: "Security"
-description: "What a pibox container can reach, which surfaces are open without a token, where provider keys are stored, and what to set before exposing a port."
-nav_order: 8
+title: Security
+description: What a pibox container can reach, which surfaces are open without a token, where provider keys are stored, and what to set before exposing a port.
 ---
 
 # Security

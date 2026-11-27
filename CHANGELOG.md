@@ -4,6 +4,15 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.23.1, 2026-11-27
+
+- The documentation site is now built by Docusaurus, a static site generator, instead of Jekyll, and every page keeps its address. A new `docs.yml` workflow publishes it. `make docs` builds the site in a pinned Node container and fails on a broken link or anchor, and `make docs-lock` refreshes its lockfile.
+- The agent skill says what the `pibox` wrapper can reach: host networking, the Docker socket, the workspace, `~/.pi`, `~/.aicodebox` and `~/.ssh/pibox`. Its metadata lists the network, file and shell access it needs. Its `docker run` examples publish the port on loopback only and use placeholder model names, and its Telegram example mounts a `telegram.yml` with `allowed_chats`, because without one the bot answers every chat.
+- The skill's setup steps download the installer to a file to read before running it, and update with `docker pull psyb0t/pibox:vX.Y.Z` instead of `:latest`.
+- When a release is published to the ClawHub skill registry, the skill names the released image by tag and digest instead of `:latest`, and its links to files in this repository point at the release tag instead of `main`. The files in the repository keep `:latest` and `main`.
+- The pipeline's image job is now named `docker`, and both image jobs set the Docker Hub repository to public and sync its description.
+- The installed wrapper does not need updating.
+
 ## v0.23.0, 2026-11-27
 
 - The MCP bridge passes each server's instructions to Pi. The `instructions` a server sends when it connects go into the system prompt, under the server's name, before every run. Pi used to see only the tools, so a server's how-to (which tool first, which to avoid, how a multi-step task goes) never reached the model. Each server's text is cut at 8,000 characters.

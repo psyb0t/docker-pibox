@@ -1,8 +1,6 @@
 ---
-title: "API mode"
+title: API mode
 description: "pibox API mode: run Pi over HTTP, poll background runs, move workspace files, and use the OpenAI-compatible chat endpoint with tools."
-parent: "Modes"
-nav_order: 1
 ---
 
 # API mode

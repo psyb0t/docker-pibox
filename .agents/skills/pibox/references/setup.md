@@ -10,11 +10,15 @@
 
 ### Host wrapper
 
-Install the wrapper for interactive and one-shot use:
+Install the wrapper for interactive and one-shot use. Download the installer to a file and read all of it before you run it:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/psyb0t/docker-pibox/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/psyb0t/docker-pibox/main/install.sh -o pibox-install.sh
+cat pibox-install.sh
+bash pibox-install.sh
 ```
+
+The installer creates `~/.pi`, `~/.aicodebox` and `~/.ssh/pibox`, generates an SSH key `id_ed25519` in `~/.ssh/pibox` when none exists, pulls the image, downloads the wrapper, and installs it as `/usr/local/bin/pibox` with `sudo`. Set `PIBOX_FULL=1` before `bash` to install the full image variant.
 
 Install `pibox`, `codexbox`, and `claudebox` in the same command directory,
 normally `/usr/local/bin`, when a box needs to launch another. Each wrapper
@@ -37,20 +41,20 @@ explicitly asks for a direct container deployment.
 ### REST / OpenAI-compatible / MCP server
 
 ```bash
-docker run -d --name pibox --network host \
+docker run -d --name pibox -p 127.0.0.1:8080:8080 \
   -e PIBOX_API_MODE=1 \
   -e PIBOX_API_MODE_TOKEN=your-secret \
-  -e PIBOX_AVAILABLE_MODELS=glm-4.6,glm-4.5-air \
+  -e PIBOX_AVAILABLE_MODELS=your-model-id \
   -e PIBOX_MCP_MODE=1 \
   -e PIBOX_MCP_MODE_TOKEN=your-mcp-secret \
   -e ANTHROPIC_AUTH_TOKEN=your-token \
-  -e ANTHROPIC_BASE_URL=https://api.z.ai/api/anthropic \
-  -e ANTHROPIC_MODEL=glm-4.6 \
+  -e ANTHROPIC_BASE_URL=https://your-provider.example/anthropic \
+  -e ANTHROPIC_MODEL=your-model-id \
   -v "$PWD/workspace:/workspace" \
   psyb0t/pibox:latest
 ```
 
-`--network host` is convenient for local use; for anything else publish the port explicitly (`-p 8080:8080`) instead.
+The example publishes the port on loopback only. Publish it on other interfaces only behind an authenticating proxy. `--network host` shares the host's network with the container. Add it only when the container must reach a service that listens on the host's loopback address.
 
 **Verify:** `curl http://localhost:8080/healthz` returns `{"ok": true, "adapter": "pi"}`.
 
@@ -61,8 +65,8 @@ docker run -d --name pibox-tg \
   -e PIBOX_TELEGRAM_MODE=1 \
   -e PIBOX_TELEGRAM_MODE_TOKEN=your-bot-token \
   -e ANTHROPIC_AUTH_TOKEN=your-token \
-  -e ANTHROPIC_BASE_URL=https://api.z.ai/api/anthropic \
-  -e ANTHROPIC_MODEL=glm-4.6 \
+  -e ANTHROPIC_BASE_URL=https://your-provider.example/anthropic \
+  -e ANTHROPIC_MODEL=your-model-id \
   -v "$PWD/workspace:/workspace" \
   -v "$PWD/telegram.yml:/home/aicode/.aicodebox/telegram.yml:ro" \
   psyb0t/pibox:latest
@@ -77,8 +81,8 @@ docker run -d --name pibox-cron \
   -e PIBOX_CRON_MODE=1 \
   -e PIBOX_CRON_MODE_FILE=/config/cron.yaml \
   -e ANTHROPIC_AUTH_TOKEN=your-token \
-  -e ANTHROPIC_BASE_URL=https://api.z.ai/api/anthropic \
-  -e ANTHROPIC_MODEL=glm-4.6 \
+  -e ANTHROPIC_BASE_URL=https://your-provider.example/anthropic \
+  -e ANTHROPIC_MODEL=your-model-id \
   -v "$PWD/workspace:/workspace" \
   -v "$PWD/cron.yaml:/config/cron.yaml:ro" \
   psyb0t/pibox:latest
@@ -93,14 +97,14 @@ services:
     environment:
       PIBOX_API_MODE: "1"
       PIBOX_API_MODE_TOKEN: your-secret
-      PIBOX_AVAILABLE_MODELS: glm-4.6,glm-4.5-air
+      PIBOX_AVAILABLE_MODELS: your-model-id
       PIBOX_MCP_MODE: "1"
       PIBOX_MCP_MODE_TOKEN: your-mcp-secret
       ANTHROPIC_AUTH_TOKEN: your-token
-      ANTHROPIC_BASE_URL: https://api.z.ai/api/anthropic
-      ANTHROPIC_MODEL: glm-4.6
+      ANTHROPIC_BASE_URL: https://your-provider.example/anthropic
+      ANTHROPIC_MODEL: your-model-id
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     volumes:
       - ./workspace:/workspace
     restart: unless-stopped
@@ -186,8 +190,8 @@ Use these variables for Pi's documented custom HTTP APIs. They configure the ups
 LiteLLM example:
 
 ```bash
-docker run --rm --network host \
-  -e PIBOX_PROVIDER_BASE_URL=http://127.0.0.1:4000/v1 \
+docker run --rm \
+  -e PIBOX_PROVIDER_BASE_URL=https://litellm.example.com/v1 \
   -e PIBOX_PROVIDER_API=openai-completions \
   -e PIBOX_PROVIDER_API_KEY=your-litellm-virtual-key \
   -e PIBOX_PROVIDER_MODEL=your-model-id \
@@ -195,6 +199,8 @@ docker run --rm --network host \
   psyb0t/pibox:latest \
   -p "list the files in /workspace"
 ```
+
+For a LiteLLM that listens only on the host's loopback address, add `--network host` and use `http://127.0.0.1:4000/v1` as the base URL.
 
 Model limits come from Pi's bundled catalog when it lists the model ID, else a 128,000-token context window, a 16,384-token output limit and no reasoning. Pi forces thinking off for a model without reasoning. These override both for every registered model:
 
@@ -258,7 +264,7 @@ No ports are opened for Telegram, cron, interactive, or one-shot exec modes. The
 docker logs -f pibox    # tail logs
 docker stop pibox       # stop
 docker rm pibox          # remove
-docker pull psyb0t/pibox:latest  # update
+docker pull psyb0t/pibox:vX.Y.Z  # update to the release tag you want
 ```
 
 Check what's running inside a live API-mode container:

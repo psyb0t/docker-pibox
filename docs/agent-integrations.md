@@ -1,7 +1,6 @@
 ---
-title: "Agent integrations"
-description: "Install the pibox skill and plugins in Claude Code, Codex and OpenClaw, and bridge stdio MCP clients to a running pibox server."
-nav_order: 7
+title: Agent integrations
+description: Install the pibox skill and plugins in Claude Code, Codex and OpenClaw, and bridge stdio MCP clients to a running pibox server.
 ---
 
 # Agent integrations

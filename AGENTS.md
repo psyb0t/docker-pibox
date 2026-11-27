@@ -50,7 +50,7 @@ Request path: client -> base mode (API, MCP, Telegram, cron) -> `PiAdapter.build
 | `action.yml`, `scripts/` | The GitHub Action and its jq filters |
 | `tests/` | Bash tests: offline contract tests and the e2e suite run by `test.sh` |
 | `tests/fixtures/` | The stub `docker` for action tests, an MCP echo server for e2e, and the MCP guide server and scripted model for the offline bridge test |
-| `docs/` | The documentation site (GitHub Pages, Jekyll, Just the Docs) |
+| `docs/` | The documentation site (GitHub Pages, built with Docusaurus from `website/`) |
 | `.agents/skills/pibox/` | The agent skill and its `references/setup.md` |
 | `.agents/plugins/pibox/` | The OpenClaw stdio-to-HTTP MCP bridge plugin (MIT) |
 | `.agents/.claude-plugin/`, `.agents/.codex-plugin/` | Claude Code and Codex plugin manifests |
@@ -71,7 +71,7 @@ make lint                  # shellcheck + ruff + pyright (lint-shell, lint-pytho
 make test-ci               # offline, credential-free tests, what CI runs
 make test-python           # adapter unit tests inside the base image
 make test                  # e2e suite, needs .env.test and a real LLM endpoint
-make docs                  # build the site into .testing/docs-site
+make docs                  # build the site into website/build and check its links
 make version V=X.Y.Z       # sync version metadata, no commit, no tag
 ```
 

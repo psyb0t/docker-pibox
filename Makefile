@@ -14,7 +14,7 @@ TAG        := v$(VERSION)
 BASE_IMAGE ?= psyb0t/aicodebox:v0.18.4@sha256:4962442c598356a0e570ea16d6ab22af83a5c4fb874165665010b83b256b00e9
 FULL_BASE_IMAGE ?= psyb0t/aicodebox:v0.18.4-full@sha256:dcacf5779530eaf346979e50cb134ab5f6be56bba1654cc334f158f37b7d884d
 
-.PHONY: all build build-full build-all install install-full install-wrapper pull-base pull-full-base test test-wrapper-install clean help version pkg-lock lint lint-shell lint-python test-ci test-python docs
+.PHONY: all build build-full build-all install install-full install-wrapper pull-base pull-full-base test test-wrapper-install clean help version pkg-lock lint lint-shell lint-python test-ci test-python docs docs-build docs-lock
 
 # Lint and CI tests run their tools in containers, so a host needs only
 # Docker, Make, Bash and jq. The Python checks run in the published base
@@ -23,7 +23,6 @@ FULL_BASE_IMAGE ?= psyb0t/aicodebox:v0.18.4-full@sha256:dcacf5779530eaf346979e50
 PY_DEV_TOOLS     := pytest==9.1.1 ruff==0.17.0 pyright==1.1.414
 SHELLCHECK_IMAGE ?= koalaman/shellcheck:v0.11.0
 SHELL_SOURCES    := $(shell find . -name '*.sh' -not -path './.*' -not -path '*/node_modules/*' -not -path '*/.venv/*' -not -name git-update.sh | sort) tests/fixtures/action/docker
-DOCS_SITE        ?= .testing/docs-site
 
 # $(call py_dev_run,<command>) runs <command> in pibox/ inside the base image
 # with the repository mounted read-only.
@@ -135,20 +134,27 @@ test-python: ## Run the adapter unit tests inside the base image
 
 test-ci: test-python test-wrapper-install test-action test-entrypoint-identity test-action-provider-output test-openclaw-bridge test-mcp-bridge-context ## Run every offline, credential-free test (what CI runs)
 
-# Builds docs/ with the image GitHub Pages uses, so the local result matches
-# the published site. The output directory is gitignored.
-docs: ## Build the documentation site into .testing/docs-site
-	@mkdir -p "$(DOCS_SITE)"
-	docker run --rm \
-		--user "$$(id -u):$$(id -g)" \
-		-e HOME=/tmp \
-		-e GITHUB_WORKSPACE=/work \
-		-e GITHUB_REPOSITORY=psyb0t/docker-pibox \
-		-e INPUT_SOURCE=docs \
-		-e INPUT_DESTINATION="$(DOCS_SITE)" \
-		-e INPUT_VERBOSE=false \
-		-v "$(CURDIR):/work" \
-		ghcr.io/actions/jekyll-build-pages:v1.0.13@sha256:6791ebfd912185ed59bfb5fb102664fa872496b79f87ff8b9cfba292a7345041
+# The documentation site in website/ builds the pages in docs/ with Docusaurus
+# inside a pinned Node image. The install step downloads the locked packages
+# through pnpm's age gate; the build itself runs with no network.
+DOCS_NODE_IMAGE := node:24.21.0-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20
+DOCS_CACHE      := .testing/docs-cache
+DOCS_RUN        := docker run --rm --init --cap-drop ALL --security-opt no-new-privileges:true \
+	--user $(shell id -u):$(shell id -g) -e HOME=/tmp -e COREPACK_HOME=/cache/corepack \
+	-v "$(CURDIR)/$(DOCS_CACHE):/cache" \
+	-v "$(CURDIR)/docs:/work/docs:ro" -v "$(CURDIR)/website:/work/website" -w /work/website
+
+docs: docs-build ## Build the documentation site and check its links
+
+docs-build: | $(DOCS_CACHE) ## Build the documentation site into website/build
+	@$(DOCS_RUN) $(DOCS_NODE_IMAGE) corepack pnpm install --frozen-lockfile --ignore-scripts --store-dir /cache/pnpm
+	@$(DOCS_RUN) --network none $(DOCS_NODE_IMAGE) corepack pnpm run build
+
+docs-lock: | $(DOCS_CACHE) ## Refresh the documentation lockfile under the dependency age gate
+	@$(DOCS_RUN) $(DOCS_NODE_IMAGE) corepack pnpm install --lockfile-only --ignore-scripts --store-dir /cache/pnpm
+
+$(DOCS_CACHE):
+	@mkdir -p "$@"
 
 clean: ## Remove built images (keeps the published base)
 	docker rmi $(IMAGE_NAME):$(TAG) 2>/dev/null || true

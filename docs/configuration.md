@@ -1,7 +1,6 @@
 ---
-title: "Configuration"
+title: Configuration
 description: "Every pibox environment variable: mode flags, workspace and runtime settings, PIBOX_ to AICODEBOX_ aliasing, Git identity, bin/ and init.d/ hooks, subagents."
-nav_order: 3
 ---
 
 # Configuration

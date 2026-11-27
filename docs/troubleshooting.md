@@ -1,7 +1,6 @@
 ---
-title: "Troubleshooting"
-description: "Fixes for pibox startup refusals, provider errors such as Stream ended without finish_reason, busy workspaces, MCP 421 and 403, and wrapper errors."
-nav_order: 9
+title: Troubleshooting
+description: Fixes for pibox startup refusals, provider errors such as Stream ended without finish_reason, busy workspaces, MCP 421 and 403, and wrapper errors.
 ---
 
 # Troubleshooting

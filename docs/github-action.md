@@ -1,14 +1,12 @@
 ---
-title: "GitHub Action"
+title: GitHub Action
 description: "Run Pi in a GitHub Actions job with the pibox composite action: read-only context, a separate output directory, live tool logs and outputs."
-nav_order: 6
 ---
 
 # GitHub Action
 
 The root [`action.yml`](https://github.com/psyb0t/docker-pibox/blob/main/action.yml) runs Pi through this repository's wrapper, driven by [`scripts/github-action.sh`](https://github.com/psyb0t/docker-pibox/blob/main/scripts/github-action.sh). It mounts context read-only at `/context`, uses a separate writable output directory, and creates fresh Pi, runtime, and SSH state for each invocation.
 
-<!-- {% raw %} -->
 ```yaml
 jobs:
   summarize:
@@ -33,7 +31,6 @@ jobs:
           OUTPUT_PATH: ${{ steps.pi.outputs.output-path }}
         run: cat "$OUTPUT_PATH/summary.md"
 ```
-<!-- {% endraw %} -->
 
 ## Inputs
 

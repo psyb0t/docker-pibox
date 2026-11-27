@@ -1,8 +1,6 @@
 ---
-title: "Telegram mode"
+title: Telegram mode
 description: "pibox Telegram mode: talk to Pi from a bot with per-chat workspaces, chat and user allowlists, file transfer and per-chat model settings."
-parent: "Modes"
-nav_order: 2
 ---
 
 # Telegram mode

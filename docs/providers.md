@@ -1,7 +1,6 @@
 ---
-title: "LLM providers"
+title: LLM providers
 description: "Point Pi at an OpenAI-compatible, Anthropic Messages or Google endpoint with PIBOX_PROVIDER_*, or keep the ANTHROPIC_* compatibility path."
-nav_order: 4
 ---
 
 # LLM providers

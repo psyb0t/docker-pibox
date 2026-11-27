@@ -1,8 +1,33 @@
 ---
 name: pibox
-description: "Install, configure, or run pi-coding-agent through the pibox wrapper, or connect to its HTTP, MCP, Telegram, or cron surfaces."
+description: "Install, configure, or run pi-coding-agent through the pibox wrapper, or connect to its HTTP, MCP, Telegram, or cron surfaces. Setup downloads an installer and installs the wrapper with sudo. The wrapper runs Docker containers that mount the workspace, the pibox state directories and the Docker socket."
 homepage: https://github.com/psyb0t/docker-pibox
 user-invocable: true
+permissions:
+  network:
+    - "raw.githubusercontent.com over HTTPS: download the installer and the pibox wrapper"
+    - "Docker Hub: pull the psyb0t/pibox image"
+    - "the pibox server the user runs, http://localhost:8080 by default or the PIBOX_URL the user sets"
+    - "the model provider URL the user configures (PIBOX_PROVIDER_BASE_URL or ANTHROPIC_BASE_URL): pibox sends prompts and workspace content there"
+    - "api.telegram.org, only when Telegram mode is on"
+  filesystem:
+    read:
+      - "the current workspace"
+      - "~/.pi"
+      - "~/.aicodebox"
+    write:
+      - "the current workspace (the container mounts it read-write)"
+      - "~/.pi"
+      - "~/.aicodebox"
+      - "~/.ssh/pibox (the installer creates an SSH key here)"
+      - "/usr/local/bin/pibox (installed with sudo)"
+      - "/var/run/docker.sock (the wrapper mounts it into the container)"
+  shell:
+    - "curl *"
+    - "bash pibox-install.sh"
+    - "pibox *"
+    - "docker run psyb0t/pibox *"
+    - "docker logs, stop, rm and pull for the pibox container and image"
 metadata:
   { "openclaw": { "emoji": "🥧", "primaryEnv": "PIBOX_URL", "requires": { "bins": ["docker", "curl"] } } }
 ---
@@ -58,9 +83,11 @@ choose another approach.
 
 ## Security & safety
 
-- **No auth when `PIBOX_API_MODE_TOKEN` is unset.** With it empty the REST/OpenAI-compatible API surface is UNAUTHENTICATED: anyone who can reach it gets full agent-execution and workspace file-read/write/delete access. NEVER expose such an instance on a network or to untrusted agents; set the token and bind to loopback / behind an authenticating proxy.
-- **No auth when `PIBOX_MCP_MODE_TOKEN` is unset.** Same story for the MCP surface (`/mcp/` or the sidecar). An empty token means unauthenticated `run_prompt`/file-tool access, and it does not fall back to `PIBOX_API_MODE_TOKEN`. Set it explicitly.
-- **Destructive & irreversible.** `DELETE /run/{id}`, `DELETE /files/{path}`, and the MCP `delete_file` tool remove state with no undo (canceled runs can't be resumed; deleted files are gone). An agent must NEVER call these unless the user explicitly asked for that exact action; confirm the specific target first, scope it to the current task, and never enumerate-then-bulk-delete. On a shared/multi-tenant instance a deletion can destroy another caller's in-flight run or workspace file, so treat these routes as admin-only.
+- **Keep both tokens set.** With `PIBOX_API_MODE_TOKEN` empty, the REST and OpenAI-compatible API is unauthenticated: anyone who can reach it can run the agent and read, write and delete workspace files. `PIBOX_MCP_MODE_TOKEN` does the same for the MCP surface (`/mcp/` or the sidecar) and does not fall back to the API token. With `docker run`, publish the port on loopback (`-p 127.0.0.1:8080:8080`) or put an authenticating proxy in front. A server started through the `pibox` wrapper uses host networking and listens on the host's interfaces, so always set both tokens for it.
+- **The wrapper is not sandboxed from the host.** The `pibox` command starts the container with `--network host` and mounts the Docker socket, the workspace, `~/.pi`, `~/.aicodebox` and `~/.ssh/pibox`. The socket gives code in the container control of the host Docker daemon, which is host-level access, so run it only in a workspace the user trusts the agent with. The `docker run` examples below publish a port instead of using host networking and do not mount the socket.
+- **Deletes cannot be undone.** `DELETE /run/{id}`, `DELETE /files/{path}` and the MCP `delete_file` tool cancel a run or remove a file for good. Use them only on a run or file the current task created, and only when the user asked for that specific action.
+- **Where data goes.** The installer comes from `raw.githubusercontent.com` and the image from Docker Hub. Prompts, tool output and workspace content go to the model provider URL the user configured, so point it only at a provider the user trusts. Telegram mode sends replies and files to `api.telegram.org`. The `curl` examples call a pibox server on `localhost:8080`, so change that address only to a pibox the user runs.
+- **Credentials.** Pass tokens as environment variables or `PIBOX_ENV_*` values from the user's secret store, and never print them. The values shown below are fake placeholders.
 
 ## When To Use
 
@@ -105,13 +132,13 @@ Any Pi CLI flag works here (`--model`, `--thinking`, `--session`, etc.). Auth: n
 `PIBOX_API_MODE=1`. FastAPI server on `:8080` (override `PIBOX_API_MODE_PORT`). **Requires `PIBOX_AVAILABLE_MODELS=<csv>`**: the server refuses to boot without it (no sensible default; pi can drive any provider's models).
 
 ```bash
-docker run -d --network host \
+docker run -d -p 127.0.0.1:8080:8080 \
   -e PIBOX_API_MODE=1 \
   -e PIBOX_API_MODE_TOKEN=your-secret \
-  -e PIBOX_AVAILABLE_MODELS=glm-4.6,glm-4.5-air \
+  -e PIBOX_AVAILABLE_MODELS=your-model-id \
   -e ANTHROPIC_AUTH_TOKEN=your-token \
-  -e ANTHROPIC_BASE_URL=https://api.z.ai/api/anthropic \
-  -e ANTHROPIC_MODEL=glm-4.6 \
+  -e ANTHROPIC_BASE_URL=https://your-provider.example/anthropic \
+  -e ANTHROPIC_MODEL=your-model-id \
   -v "$PWD/workspace:/workspace" \
   psyb0t/pibox:latest
 ```
@@ -132,10 +159,6 @@ docker run -d --network host \
 | `POST` | `/mcp/` | MCP server (streamable HTTP), mounted only when `PIBOX_MCP_MODE=1`. Slashless `/mcp` reaches the same handler |
 
 All `/files/*` paths resolve against the workspace root with traversal checking: `..` segments that escape the root return 400. Every route except `/healthz` is gated by `Authorization: Bearer <PIBOX_API_MODE_TOKEN>` when that var is set; empty/unset token = no auth.
-
-**No auth when `PIBOX_API_MODE_TOKEN` is unset.** With it empty the API is UNAUTHENTICATED: anyone who can reach it gets run-the-agent and workspace file-read/write/delete access. NEVER expose such an instance on a network or to untrusted agents; set the token and bind to loopback / behind an authenticating proxy.
-
-**Destructive & irreversible.** `DELETE /run/{id}` kills the in-flight subprocess with no undo, and `DELETE /files/{path}` deletes a workspace file with no undo. An agent must NEVER call either unless the user explicitly asked for that exact action; confirm the specific target first; scope it to the current task; never enumerate-then-bulk-delete. On a shared/multi-tenant instance this can disrupt or destroy another caller's run or data, so treat these routes as admin-only.
 
 ```bash
 # sync run
@@ -177,7 +200,7 @@ curl -s http://localhost:8080/openai/v1/chat/completions \
   -H "Authorization: Bearer your-secret" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "glm-4.6",
+    "model": "your-model-id",
     "messages": [{"role": "user", "content": "say HELLO"}]
   }'
 ```
@@ -216,11 +239,7 @@ curl -s http://localhost:8080/mcp/ \
 
 `run_prompt(prompt, workspace?, model?, system_prompt?, append_system_prompt?, no_continue=true, resume?, thinking?, json_schema?)` invokes the agent and returns its text. `list_files`/`read_file`/`write_file`/`delete_file` operate on workspace-relative paths with the same traversal guard as the REST `/files` endpoints.
 
-**Destructive & irreversible.** `delete_file` removes a workspace file with no undo. An agent must NEVER call it unless the user explicitly asked for that exact action; confirm the specific target first; scope it to the current task; never enumerate-then-bulk-delete. On a shared/multi-tenant instance this can destroy another caller's workspace data, so treat it as admin-only.
-
 Auth: `PIBOX_MCP_MODE_TOKEN=<token>` as a bearer via `Authorization: Bearer ...`, or the `?apiToken=...` query param for clients that can't set headers. Empty = no auth. **No fallback to `PIBOX_API_MODE_TOKEN`.**
-
-**No auth when `PIBOX_MCP_MODE_TOKEN` is unset.** With it empty the MCP surface is UNAUTHENTICATED: anyone who can reach it gets `run_prompt` (arbitrary agent execution) and workspace file read/write/delete access. NEVER expose such an instance on a network or to untrusted agents; set the token and bind to loopback / behind an authenticating proxy.
 
 MCP keeps DNS rebinding protection enabled. Loopback hosts and origins work by default; a reverse proxy, tunnel, or public DNS name needs its exact `Host` and browser `Origin` values allowed with `PIBOX_MCP_MODE_ALLOWED_HOSTS` and `PIBOX_MCP_MODE_ALLOWED_ORIGINS`, or MCP calls through it fail.
 
@@ -239,7 +258,7 @@ Config at `$HOME/.aicodebox/telegram.yml` (override via `PIBOX_TELEGRAM_MODE_CON
 ```yaml
 allowed_chats: [-100123, 42]
 default:
-  model: glm-4.6
+  model: your-model-id
   workspace: shared
 chats:
   -100123:
@@ -262,7 +281,7 @@ jobs:
       Be brief. One paragraph max.
     workspace: myproject
     telegram_chat_id: -100123
-    model: glm-4.6
+    model: your-model-id
     thinking: low
 ```
 
@@ -281,7 +300,7 @@ Use `PIBOX_PROVIDER_*` for Pi's documented custom HTTP APIs, including LiteLLM a
 | `ANTHROPIC_BASE_URL` | Endpoint override (default `https://api.anthropic.com`) |
 | `ANTHROPIC_MODEL` | Default model when the caller doesn't specify one |
 
-Z.AI's GLM models are a fast/cheap default: `ANTHROPIC_BASE_URL=https://api.z.ai/api/anthropic` + `ANTHROPIC_MODEL=glm-4.6`.
+`ANTHROPIC_BASE_URL` can point at any Anthropic Messages compatible endpoint, together with `ANTHROPIC_MODEL`.
 
 pi's thinking levels (`--thinking`): `off`, `minimal`, `low`, `medium`, `high`, `xhigh`. Exposed as `/effort` in Telegram mode and `thinking` in API/OAI requests.
 
@@ -293,15 +312,15 @@ pi's thinking levels (`--thinking`): `off`, `minimal`, `low`, `medium`, `high`, 
 
 ```bash
 docker run --rm -e ANTHROPIC_AUTH_TOKEN=$TOKEN -e ANTHROPIC_BASE_URL=$BASE_URL \
-  -e ANTHROPIC_MODEL=glm-4.6 -v "$PWD:/workspace" \
+  -e ANTHROPIC_MODEL=your-model-id -v "$PWD:/workspace" \
   psyb0t/pibox:latest -p "summarize the diff in /workspace"
 ```
 
 **Long-running server, drive it with curl:**
 
 ```bash
-docker run -d --network host -e PIBOX_API_MODE=1 -e PIBOX_API_MODE_TOKEN=$SECRET \
-  -e PIBOX_AVAILABLE_MODELS=glm-4.6 -e ANTHROPIC_AUTH_TOKEN=$TOKEN \
+docker run -d -p 127.0.0.1:8080:8080 -e PIBOX_API_MODE=1 -e PIBOX_API_MODE_TOKEN=$SECRET \
+  -e PIBOX_AVAILABLE_MODELS=your-model-id -e ANTHROPIC_AUTH_TOKEN=$TOKEN \
   -e ANTHROPIC_BASE_URL=$BASE_URL -v "$PWD/workspace:/workspace" psyb0t/pibox:latest
 curl -s http://localhost:8080/run -H "Authorization: Bearer $SECRET" \
   -H "Content-Type: application/json" -d '{"prompt": "run the tests and report failures"}'
@@ -322,13 +341,15 @@ claude mcp add --transport http pibox http://localhost:8080/mcp/ \
   --header "Authorization: Bearer $MCP_TOKEN"
 ```
 
-**Chat + Telegram + scheduled digest, all on one box:**
+**Chat + Telegram + scheduled digest, all on one box.** Mount a `telegram.yml` with `allowed_chats` set, because without it the bot answers every chat:
 
 ```bash
-docker run -d --network host \
+docker run -d \
   -e PIBOX_TELEGRAM_MODE=1 -e PIBOX_TELEGRAM_MODE_TOKEN=$BOT_TOKEN \
   -e PIBOX_CRON_MODE=1 -e PIBOX_CRON_MODE_FILE=/config/cron.yaml \
   -e ANTHROPIC_AUTH_TOKEN=$TOKEN -e ANTHROPIC_BASE_URL=$BASE_URL \
-  -v "$PWD/workspace:/workspace" -v "$PWD/cron.yaml:/config/cron.yaml:ro" \
+  -v "$PWD/workspace:/workspace" \
+  -v "$PWD/cron.yaml:/config/cron.yaml:ro" \
+  -v "$PWD/telegram.yml:/home/aicode/.aicodebox/telegram.yml:ro" \
   psyb0t/pibox:latest
 ```

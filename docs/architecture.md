@@ -1,7 +1,6 @@
 ---
-title: "Architecture"
+title: Architecture
 description: "How pibox layers on aicodebox: the host wrapper, the pibox entrypoint and provider bootstrap, the base modes, and the PiAdapter that drives the Pi CLI."
-nav_order: 10
 ---
 
 # Architecture
