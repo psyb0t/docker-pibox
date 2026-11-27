@@ -4,6 +4,13 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v0.23.0, 2026-11-27
+
+- The MCP bridge passes each server's instructions to Pi. The `instructions` a server sends when it connects go into the system prompt, under the server's name, before every run. Pi used to see only the tools, so a server's how-to (which tool first, which to avoid, how a multi-step task goes) never reached the model. Each server's text is cut at 8,000 characters.
+- Servers that offer resources get `mcp__<server>__list_resources` and `mcp__<server>__read_resource`, so Pi can read the guides and documents a server points at.
+- `.mcp.json` entries with a `url` connect over streamable HTTP, with `headers` whose `${NAME}` placeholders are filled from the container's environment. A stdio shim in front of an HTTP server is no longer needed. See [MCP servers inside Pi](https://psyb0t.github.io/docker-pibox/configuration/#mcp-servers-inside-pi).
+- The installed wrapper does not need updating.
+
 ## v0.22.0, 2026-11-16
 
 - Registers each model with its context window, output limit and reasoning flag from Pi's bundled model catalog when the catalog lists the model ID. `glm-5.3` and `glm-5.3-flash`, for example, now get a 1,000,000-token context window, a 131,072-token output limit and `reasoning: true`, so Pi no longer forces thinking off for them or cuts long thinking replies at 16,384 tokens. Models outside the catalog keep 128,000, 16,384 and no reasoning. `PIBOX_MODEL_MAX_TOKENS`, `PIBOX_MODEL_CONTEXT_WINDOW` and `PIBOX_MODEL_REASONING` override all three for every registered model; set `PIBOX_MODEL_REASONING=false` to keep the old behavior for catalog reasoning models.

@@ -29,7 +29,7 @@ container: pibox-entrypoint      PIBOX_* -> AICODEBOX_*, provider bootstrap
 | Provider bootstrap | [`setup-provider-env.sh`](https://github.com/psyb0t/docker-pibox/blob/main/pibox/scripts/setup-provider-env.sh) | Writes the managed provider into Pi's `models.json` and the selected provider and model into `pibox-provider.json` |
 | Adapter | [`adapter.py`](https://github.com/psyb0t/docker-pibox/blob/main/pibox/pibox/adapter.py) | `PiAdapter`, the aicodebox `AgentAdapter` for Pi |
 | Startup script | [`10-pi-extensions.sh`](https://github.com/psyb0t/docker-pibox/blob/main/pibox/init.d/10-pi-extensions.sh) | Registers the MCP bridge extension in Pi's settings on first start |
-| MCP bridge extension | [`mcp-bridge/index.ts`](https://github.com/psyb0t/docker-pibox/blob/main/pibox/extensions/mcp-bridge/index.ts) | Gives Pi the tools of stdio MCP servers listed in a workspace `.mcp.json` |
+| MCP bridge extension | [`mcp-bridge/index.ts`](https://github.com/psyb0t/docker-pibox/blob/main/pibox/extensions/mcp-bridge/index.ts) | Gives Pi the tools, instructions and resources of the stdio and streamable HTTP MCP servers listed in a workspace `.mcp.json` |
 | Images | [`Dockerfile`](https://github.com/psyb0t/docker-pibox/blob/main/Dockerfile), [`Dockerfile.full`](https://github.com/psyb0t/docker-pibox/blob/main/Dockerfile.full) | Install Pi from npm, the adapter with `uv pip --no-deps`, the extension's npm dependencies, and set `AICODEBOX_ADAPTER=pibox.adapter:PiAdapter` |
 
 ## The adapter

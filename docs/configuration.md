@@ -59,7 +59,7 @@ The image's own startup script, [`10-pi-extensions.sh`](https://github.com/psyb0
 
 ## MCP servers inside Pi
 
-The bundled [MCP bridge extension](https://github.com/psyb0t/docker-pibox/blob/main/pibox/extensions/mcp-bridge/index.ts) gives Pi the tools of any stdio MCP server listed in a `.mcp.json` file in the directory Pi starts in. It uses the same shape as Claude Code:
+The bundled [MCP bridge extension](https://github.com/psyb0t/docker-pibox/blob/main/pibox/extensions/mcp-bridge/index.ts) gives Pi what each MCP server listed in a `.mcp.json` file in the directory Pi starts in offers the model: its tools, its instructions and its resources. It uses the same shape as Claude Code, with stdio servers (`command`) and streamable HTTP servers (`url`):
 
 ```json
 {
@@ -72,12 +72,23 @@ The bundled [MCP bridge extension](https://github.com/psyb0t/docker-pibox/blob/m
       "env": {
         "EXAMPLE": "value"
       }
+    },
+    "docs": {
+      "type": "http",
+      "url": "https://mcp.example.invalid/mcp",
+      "headers": {
+        "Authorization": "Bearer ${DOCS_TOKEN}"
+      }
     }
   }
 }
 ```
 
-Each tool is registered as `mcp__<server>__<tool>`, with characters outside `A-Za-z0-9_-` replaced by `_`. A server that fails to start or to list its tools is logged and skipped. This is the opposite direction from [MCP mode](modes/mcp.md), which lets other agents call pibox.
+Each tool is registered as `mcp__<server>__<tool>`, with characters outside `A-Za-z0-9_-` replaced by `_`. A server that fails to start or to list its tools is logged and skipped.
+
+- **Instructions:** the `instructions` a server sends when it connects go into Pi's system prompt, under the server's name, before every run. Servers put their how-to there: which tool to use first, which to avoid, how a multi-step task goes. Each server's text is cut at 8,000 characters.
+- **Resources:** a server that offers resources also gets `mcp__<server>__list_resources` and `mcp__<server>__read_resource`, so Pi can read the guides and documents it points at.
+- **HTTP servers:** an entry with `url` connects over streamable HTTP. `${NAME}` in a header value is replaced with that environment variable from the container, so the token stays out of the file. Give the exact endpoint path the server serves. This is the opposite direction from [MCP mode](modes/mcp.md), which lets other agents call pibox.
 
 ## Subagents
 

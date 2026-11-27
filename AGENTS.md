@@ -20,7 +20,7 @@ Two Docker images, `psyb0t/pibox:latest` and `psyb0t/pibox:latest-full`, that ru
 - `pibox/scripts/setup-subagents.sh`: run by the entrypoint as `aicode` after the provider bootstrap. Adds or removes the subagent extension in `~/.pi/agent/settings.json` from `PIBOX_SUBAGENTS`, writes `~/.pi/agent/pibox-subagent.json` from `PIBOX_SUBAGENT_*`, and links `PIBOX_AGENTS_DIR/*.md` into `~/.pi/agent/agents`, tracked in `pibox-agents.json`.
 - `pibox/scripts/install-subagent-extension.sh`: build-time step that copies Pi's `examples/extensions/subagent` to `/opt/pibox/extensions/subagent` and patches it to read `pibox-subagent.json`. Each patch must match exactly once, so a Pi update that moves the code fails the build.
 - `pibox/init.d/10-pi-extensions.sh`: first-run hook that registers the MCP bridge in `~/.pi/agent/settings.json`.
-- `pibox/extensions/mcp-bridge/index.ts`: Pi extension that registers tools from stdio MCP servers in a workspace `.mcp.json` as `mcp__<server>__<tool>`.
+- `pibox/extensions/mcp-bridge/index.ts`: Pi extension that connects the stdio and streamable HTTP MCP servers in a workspace `.mcp.json`, registers their tools as `mcp__<server>__<tool>`, adds each server's instructions to the system prompt, and adds `list_resources`/`read_resource` tools for servers with resources. `tests/test_mcp_bridge_context.sh` checks all of it offline.
 - `action.yml` + `scripts/github-action.sh`: composite action that runs Pi through `wrapper.sh` with read-only `/context`, a separate output directory, fresh state, `--no-session`, and the jq filters in `scripts/action-*.jq`.
 
 Request path: client -> base mode (API, MCP, Telegram, cron) -> `PiAdapter.build_argv` -> `pi -p --mode json` with the prompt on stdin -> upstream LLM -> `PiAdapter.parse_output` or `parse_stream_event` -> base mode response.
@@ -49,7 +49,7 @@ Request path: client -> base mode (API, MCP, Telegram, cron) -> `PiAdapter.build
 | `wrapper.sh`, `install.sh` | Host wrapper and installer |
 | `action.yml`, `scripts/` | The GitHub Action and its jq filters |
 | `tests/` | Bash tests: offline contract tests and the e2e suite run by `test.sh` |
-| `tests/fixtures/` | The stub `docker` for action tests and an MCP echo server for e2e |
+| `tests/fixtures/` | The stub `docker` for action tests, an MCP echo server for e2e, and the MCP guide server and scripted model for the offline bridge test |
 | `docs/` | The documentation site (GitHub Pages, Jekyll, Just the Docs) |
 | `.agents/skills/pibox/` | The agent skill and its `references/setup.md` |
 | `.agents/plugins/pibox/` | The OpenClaw stdio-to-HTTP MCP bridge plugin (MIT) |

@@ -110,6 +110,10 @@ test-action: ## Test the GitHub Action and native event handling without credent
 test-openclaw-bridge: ## Verify the OpenClaw MCP bridge's target URL and auth header with a stub proxy
 	bash tests/test_openclaw_bridge.sh
 
+.PHONY: test-mcp-bridge-context
+test-mcp-bridge-context: ## Verify the MCP bridge gives Pi server instructions, resources and HTTP servers, offline with a scripted model
+	bash tests/test_mcp_bridge_context.sh
+
 .PHONY: test-action-provider-output
 test-action-provider-output: ## Verify provider startup leaves native stdout clean in a container
 	bash tests/action-provider-output.sh
@@ -129,7 +133,7 @@ lint-python: ## Run ruff and pyright on the adapter inside the base image
 test-python: ## Run the adapter unit tests inside the base image
 	$(call py_dev_run,python3 -m pytest -p no:cacheprovider tests/ -v)
 
-test-ci: test-python test-wrapper-install test-action test-entrypoint-identity test-action-provider-output test-openclaw-bridge ## Run every offline, credential-free test (what CI runs)
+test-ci: test-python test-wrapper-install test-action test-entrypoint-identity test-action-provider-output test-openclaw-bridge test-mcp-bridge-context ## Run every offline, credential-free test (what CI runs)
 
 # Builds docs/ with the image GitHub Pages uses, so the local result matches
 # the published site. The output directory is gitignored.
